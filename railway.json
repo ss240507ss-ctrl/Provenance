@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "cd provenance-backend && npm install && npm start",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}

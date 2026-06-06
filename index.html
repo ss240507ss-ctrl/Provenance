@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Provenance</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════
+   TOKENS
+═══════════════════════════════════ */
+:root {
+  --bg:       #faf8ff;
+  --bg2:      #f3effe;
+  --ink:      #1a0f2e;
+  --ink2:     #3d2a5e;
+  --violet:   #6d28d9;
+  --v2:       #8b5cf6;
+  --v3:       #ede9fe;
+  --v4:       rgba(109,40,217,0.06);
+  --mag:      #a21caf;
+  --mag-s:    rgba(162,28,175,0.08);
+  --paper:    #ffffff;
+  --warm:     #4c3a6e;
+  --muted:    #7c6a9a;
+  --dim:      #b0a0cc;
+  --border:   rgba(109,40,217,0.14);
+  --bsoft:    rgba(109,40,217,0.07);
+  --green:    #059669;
+  --green-s:  rgba(5,150,105,0.08);
+  --amber:    #b45309;
+  --amber-s:  rgba(180,83,9,0.08);
+  --fd: 'Playfair Display', serif;
+  --fu: 'Outfit', sans-serif;
+  --fm: 'DM Mono', monospace;
+}
+
+/* ═══════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:var(--fu); }
+button { font-family:var(--fu); cursor:pointer; }
+
+/* ═══════════════════════════════════
+   APP SHELL
+═══════════════════════════════════ */
+.app { position:fixed; inset:0; display:flex; flex-direction:column; }
+
+/* ── screens ── */
+.screen {
+  position:absolute; inset:0;
+  opacity:0; pointer-events:none;
+  transition:opacity .25s ease;
+  display:flex; flex-direction:column;
+  background:var(--bg);
+}
+.screen.active { opacity:1; pointer-events:all; }
+
+/* ── scroll areas ── */
+.scroll {
+  flex:1; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.scroll::-webkit-scrollbar { display:none; }
+
+/* ═══════════════════════════════════
+   BOTTOM NAV
+═══════════════════════════════════ */
+.bnav {
+  flex-shrink:0;
+  height:64px;
+  padding-bottom:env(safe-area-inset-bottom, 6px);
+  background:rgba(250,248,255,0.97);
+  border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-around;
+  backdrop-filter:blur(12px);
+  z-index:100;
+}
+.ni {
+  display:flex; flex-direction:column;
+  align-items:center; gap:3px;
+  cursor:pointer; padding:6px 10px;
+  position:relative; transition:opacity .15s;
+}
+.ni:active { opacity:.7; }
+.ni.on .nic { color:var(--violet); }
+.ni.on .nil { color:var(--violet); }
+.ni.on::after {
+  content:'';
+  position:absolute; bottom:-1px;
+  left:50%; transform:translateX(-50%);
+  width:20px; height:2px;
+  background:linear-gradient(90deg, var(--violet), var(--mag));
+  border-radius:1px;
+}
+.nic { color:var(--dim); transition:color .2s; width:21px; height:21px; }
+.nil { font-family:var(--fm); font-size:8.5px; letter-spacing:.06em; color:var(--dim); transition:color .2s; text-transform:uppercase; }
+
+/* ═══════════════════════════════════
+   SHARED COMPONENTS
+═══════════════════════════════════ */
+.sec { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; padding:0 20px; margin-bottom:12px; }
+.rule { height:1px; background:var(--bsoft); margin:0 20px 20px; }
+
+.page-header {
+  padding:52px 20px 0;
+  flex-shrink:0;
+}
+.page-title {
+  font-family:var(--fd); font-size:22px; font-weight:700;
+  font-style:italic; color:var(--ink); letter-spacing:.04em;
+}
+
+/* Card styles */
+.card {
+  background:var(--paper);
+  border:1px solid var(--bsoft);
+  border-radius:12px;
+  box-shadow:0 1px 8px rgba(109,40,217,.06);
+  overflow:hidden;
+  cursor:pointer;
+  transition:box-shadow .2s, transform .1s;
+}
+.card:active { transform:scale(.99); box-shadow:0 2px 16px rgba(109,40,217,.1); }
+
+.row-item {
+  display:flex; gap:12px; align-items:flex-start;
+  padding:12px 20px;
+  cursor:pointer; transition:background .15s;
+  border-bottom:1px solid var(--bsoft);
+}
+.row-item:active { background:var(--v4); }
+.row-item:last-child { border-bottom:none; }
+
+/* Tags */
+.tag {
+  display:inline-block; font-family:var(--fm);
+  font-size:9px; letter-spacing:.1em;
+  padding:3px 8px; border-radius:10px;
+  text-transform:uppercase;
+}
+
+/* ═══════════════════════════════════
+   SPLASH
+═══════════════════════════════════ */
+#screen-splash {
+  background:var(--ink);
+  justify-content:flex-end;
+  overflow:hidden;
+}
+
+.sp-bg { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.sp-grad {
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% 30%, rgba(109,40,217,.4) 0%, transparent 65%);
+}
+.sp-glow {
+  position:absolute; top:22%; left:50%;
+  transform:translate(-50%,-50%);
+  width:200px; height:200px; border-radius:50%;
+  background:radial-gradient(circle, rgba(139,92,246,.3) 0%, transparent 70%);
+  animation:gpulse 3s ease-in-out infinite;
+}
+@keyframes gpulse {
+  0%,100% { opacity:.5; transform:translate(-50%,-50%) scale(1); }
+  50%      { opacity:1;  transform:translate(-50%,-50%) scale(1.12); }
+}
+.sp-rings {
+  position:absolute; top:18%; left:50%;
+  transform:translateX(-50%);
+  width:min(82vw,330px); height:min(82vw,330px);
+  animation:rspin 14s linear infinite;
+}
+@keyframes rspin { to { transform:translateX(-50%) rotate(360deg); } }
+.sp-rings circle { fill:none; }
+
+.sp-wave {
+  position:absolute; bottom:44%; left:0; right:0;
+  height:48px; opacity:.1;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.sp-content {
+  position:relative; z-index:2;
+  padding:22px 26px 40px;
+  background:linear-gradient(0deg, var(--ink) 58%, transparent);
+}
+.sp-eyebrow {
+  font-family:var(--fm); font-size:10px; letter-spacing:.22em;
+  color:var(--v2); text-transform:uppercase;
+  margin-bottom:14px; animation:fup .7s ease .2s both;
+}
+.sp-title {
+  font-family:var(--fd); font-size:46px; font-weight:700;
+  color:#f2ecfa; line-height:.95; margin-bottom:18px;
+  animation:fup .7s ease .4s both;
+}
+.sp-title em { font-style:italic; color:var(--v2); }
+.sp-hook {
+  font-family:var(--fu); font-size:18px; font-weight:400;
+  color:rgba(242,236,250,.82); line-height:1.55;
+  margin-bottom:6px; animation:fup .7s ease .6s both;
+}
+.sp-hook strong { color:#f2ecfa; font-weight:600; }
+.sp-sub {
+  font-family:var(--fm); font-size:10px; letter-spacing:.14em;
+  color:rgba(242,236,250,.38); text-transform:uppercase;
+  margin-bottom:32px; animation:fup .7s ease .8s both;
+}
+.sp-cta { animation:fup .7s ease 1s both; display:flex; flex-direction:column; gap:10px; }
+
+.btn-main {
+  width:100%; padding:17px;
+  background:linear-gradient(135deg, var(--violet), var(--mag));
+  color:#fff; border:none; border-radius:10px;
+  font-size:15px; font-weight:700; letter-spacing:.04em;
+}
+.btn-main:active { opacity:.85; }
+.btn-sec {
+  width:100%; padding:15px;
+  background:transparent;
+  color:rgba(242,236,250,.4);
+  border:1px solid rgba(109,40,217,.3);
+  border-radius:10px; font-size:14px; font-weight:500;
+}
+.btn-sec:active { opacity:.7; }
+
+@keyframes fup { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+/* ═══════════════════════════════════
+   TRACE SCREEN
+═══════════════════════════════════ */
+#screen-trace { background:var(--bg); }
+
+.trace-search-wrap { padding:52px 20px 16px; flex-shrink:0; }
+.trace-wm { font-family:var(--fd); font-size:22px; font-weight:700; font-style:italic; color:var(--ink); margin-bottom:18px; }
+
+.tsearch {
+  background:var(--paper);
+  border:1.5px solid var(--border);
+  border-radius:14px; overflow:hidden;
+  box-shadow:0 2px 18px rgba(109,40,217,.09);
+  transition:border-color .2s, box-shadow .2s;
+}
+.tsearch:focus-within {
+  border-color:var(--v2);
+  box-shadow:0 4px 24px rgba(109,40,217,.14);
+}
+.ts-input {
+  width:100%; padding:16px;
+  background:transparent; border:none;
+  color:var(--ink); font-size:15px; outline:none;
+}
+.ts-input::placeholder { color:var(--dim); }
+.ts-div { height:1px; background:var(--bsoft); }
+.ts-acts { display:flex; }
+.ts-act {
+  flex:1; padding:13px;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  font-size:12px; font-weight:600; letter-spacing:.04em;
+  color:var(--muted); background:transparent; border:none;
+  transition:background .15s;
+}
+.ts-act:first-child { border-right:1px solid var(--bsoft); }
+.ts-act.go { color:var(--violet); }
+.ts-act:active { background:var(--v3); }
+
+/* Capability cards */
+.cap-cards { display:flex; flex-direction:column; gap:8px; margin-bottom:22px; }
+.cap-card {
+  background:var(--paper);
+  border:1px solid var(--bsoft);
+  border-radius:12px; padding:13px 14px;
+  display:flex; gap:12px; align-items:flex-start;
+  cursor:pointer; box-shadow:0 1px 6px rgba(109,40,217,.05);
+  transition:box-shadow .2s, transform .1s;
+}
+.cap-card:active { transform:scale(.99); box-shadow:0 2px 14px rgba(109,40,217,.1); }
+.cap-icon {
+  width:38px; height:38px; border-radius:10px;
+  flex-shrink:0; display:flex; align-items:center;
+  justify-content:center; font-size:18px;
+}
+.cap-body { flex:1; }
+.cap-title { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:3px; }
+.cap-desc  { font-size:12px; color:var(--muted); line-height:1.5; }
+
+/* Artist chips */
+.chips { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:20px; }
+.chip-btn {
+  padding:7px 13px; background:var(--paper);
+  border:1px solid var(--border); border-radius:20px;
+  font-size:12px; font-weight:600; color:var(--ink2);
+  box-shadow:0 1px 4px rgba(109,40,217,.06);
+  transition:all .15s;
+}
+.chip-btn:active { background:var(--v3); border-color:var(--v2); }
+
+/* Loading */
+.t-loading {
+  display:none; flex-direction:column;
+  align-items:center; gap:16px; padding:30px 20px;
+}
+.lwave { width:100%; height:46px; }
+.llbl   { font-size:14px; font-weight:500; color:var(--ink); text-align:center; }
+.llbl-s { font-family:var(--fm); font-size:10px; color:var(--dim); letter-spacing:.08em; text-align:center; margin-top:-8px; }
+.lsteps { display:flex; flex-direction:column; gap:7px; width:100%; }
+.lstep  {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 13px; background:var(--paper);
+  border-radius:8px; font-size:12px; color:var(--dim);
+  border:1px solid var(--bsoft); transition:all .25s;
+}
+.lstep.done { color:var(--green); border-color:rgba(5,150,105,.2); background:var(--green-s); }
+.lstep.act  { color:var(--violet); background:var(--v3); border-color:var(--border); }
+.ldot { width:6px; height:6px; border-radius:50%; background:var(--dim); flex-shrink:0; transition:background .25s; }
+.lstep.done .ldot { background:var(--green); }
+.lstep.act  .ldot { background:var(--violet); }
+
+/* ── Result layers ── */
+.t-result { display:none; padding-bottom:24px; }
+
+.layer { padding:14px 16px 0; }
+
+/* Layer 1 */
+.l1-song { font-family:var(--fd); font-size:12px; color:var(--muted); font-style:italic; margin-bottom:8px; }
+.verdict-card {
+  background:var(--paper); border-radius:14px;
+  padding:18px; border:1.5px solid var(--border);
+  box-shadow:0 4px 24px rgba(109,40,217,.1); margin-bottom:6px;
+}
+.verdict-pill {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 12px; border-radius:20px;
+  font-size:11px; font-weight:700; margin-bottom:12px;
+}
+.vp-hi { background:rgba(180,83,9,.1); color:var(--amber); }
+.vp-md { background:var(--v4); color:var(--violet); }
+.vp-lo { background:var(--green-s); color:var(--green); }
+.vp-dot { width:6px; height:6px; border-radius:50%; background:currentColor; animation:vblink 1.8s ease-in-out infinite; }
+@keyframes vblink { 0%,100%{opacity:1} 50%{opacity:.25} }
+.verdict-sentence {
+  font-family:var(--fd); font-size:19px; font-weight:600;
+  font-style:italic; color:var(--ink); line-height:1.45;
+}
+.verdict-sentence em { color:var(--violet); }
+.verdict-disclaimer {
+  font-size:11px; color:var(--muted); font-style:italic;
+  margin-top:10px; padding-top:10px;
+  border-top:1px solid var(--bsoft); line-height:1.55;
+}
+
+/* Layer 2 */
+.signal-card { background:var(--paper); border:1px solid var(--bsoft); border-radius:12px; padding:14px; }
+.signal-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:7px 0; border-bottom:1px solid var(--bsoft);
+}
+.signal-row:last-of-type { border-bottom:none; padding-bottom:0; }
+.signal-lbl { font-size:13px; color:var(--warm); }
+.signal-val { font-family:var(--fm); font-size:11px; color:var(--ink); font-weight:500; }
+.signal-overall {
+  margin-top:12px; padding:10px 12px;
+  background:var(--v4); border-radius:8px; border:1px solid var(--border);
+}
+.so-lbl { font-family:var(--fm); font-size:9px; letter-spacing:.12em; color:var(--violet); text-transform:uppercase; margin-bottom:4px; }
+.so-val { font-size:13px; font-weight:700; color:var(--ink); }
+.signal-note { font-size:11px; color:var(--muted); font-style:italic; margin-top:10px; line-height:1.5; }
+
+/* Layer 3 */
+.hc-card { background:var(--paper); border:1px solid var(--bsoft); border-radius:12px; padding:14px; }
+.hc-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:7px 0; border-bottom:1px solid var(--bsoft);
+}
+.hc-row:last-child { border-bottom:none; padding-bottom:0; }
+.hc-role { font-size:13px; color:var(--warm); }
+.hc-val  { font-family:var(--fm); font-size:11px; font-weight:500; }
+.hcv-human { color:var(--green); }
+.hcv-mixed { color:var(--amber); }
+.hcv-ai    { color:var(--violet); }
+
+/* Layer 4 */
+.lineage-card { background:var(--paper); border:1px solid var(--bsoft); border-radius:12px; padding:14px; }
+.lineage-row {
+  display:flex; gap:10px; align-items:flex-start;
+  padding:9px 0; border-bottom:1px solid var(--bsoft); cursor:pointer;
+  transition:background .15s;
+}
+.lineage-row:last-of-type { border-bottom:none; padding-bottom:0; }
+.lineage-row:active { background:var(--v4); }
+.lr-emoji { width:36px; height:36px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; }
+.lr-body  { flex:1; }
+.lr-type  { font-family:var(--fm); font-size:9px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin-bottom:2px; }
+.lr-name  { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:2px; }
+.lr-desc  { font-size:12px; color:var(--muted); line-height:1.45; }
+.lr-arr   { color:var(--dim); margin-top:8px; flex-shrink:0; }
+.lineage-note { font-size:11px; color:var(--muted); font-style:italic; margin-top:10px; padding-top:10px; border-top:1px solid var(--bsoft); line-height:1.5; }
+
+/* Justice note */
+.justice {
+  margin:12px 16px 0; padding:14px 16px;
+  background:var(--mag-s); border-radius:10px;
+  border:1px solid rgba(162,28,175,.12);
+}
+.justice-lbl { font-family:var(--fm); font-size:9px; letter-spacing:.14em; color:var(--mag); text-transform:uppercase; margin-bottom:6px; }
+.justice-text { font-size:13px; color:var(--ink2); line-height:1.6; }
+.justice-text strong { color:var(--ink); }
+
+/* Share row */
+.share-row { margin:14px 16px 0; display:flex; gap:8px; }
+.sbtn {
+  flex:1; padding:12px;
+  border:1.5px solid var(--border); border-radius:10px;
+  background:var(--paper); color:var(--warm);
+  font-size:12px; font-weight:600;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:background .15s;
+}
+.sbtn:active { background:var(--v3); }
+
+/* Layer 5 collapsible */
+.coll-toggle {
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; padding:12px 14px;
+  background:var(--paper); border:1px solid var(--bsoft); border-radius:10px;
+  transition:background .15s;
+}
+.coll-toggle:active { background:var(--v4); }
+.coll-lbl { font-size:13px; font-weight:600; color:var(--ink2); }
+.coll-sub { font-family:var(--fm); font-size:9.5px; color:var(--dim); margin-top:1px; }
+.coll-icon { color:var(--dim); transition:transform .2s; flex-shrink:0; }
+.coll-icon.open { transform:rotate(180deg); }
+.coll-body { display:none; padding-top:10px; }
+.coll-body.open { display:block; }
+.tech-inner { background:var(--paper); border:1px solid var(--bsoft); border-radius:10px; padding:14px; }
+.tech-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--bsoft); }
+.tech-row:last-child { border-bottom:none; }
+.tech-lbl { font-size:12px; color:var(--muted); flex:1; }
+.tech-bar { width:76px; height:3.5px; background:var(--bsoft); border-radius:2px; overflow:hidden; }
+.tech-fill { height:100%; border-radius:2px; background:linear-gradient(90deg, var(--v2), var(--mag)); }
+.tech-val { font-family:var(--fm); font-size:11px; color:var(--ink); min-width:30px; text-align:right; }
+
+/* ═══════════════════════════════════
+   DISCOVER SCREEN
+═══════════════════════════════════ */
+#screen-discover { background:var(--bg); }
+
+.disc-topbar {
+  padding:52px 20px 0; flex-shrink:0;
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:16px;
+}
+.disc-logo { font-family:var(--fd); font-size:22px; font-weight:700; font-style:italic; color:var(--ink); }
+
+.ctabs {
+  display:flex; gap:6px; padding:0 20px;
+  margin-bottom:18px; overflow-x:auto; scrollbar-width:none; flex-shrink:0;
+}
+.ctabs::-webkit-scrollbar { display:none; }
+.ctab {
+  flex-shrink:0; padding:7px 14px;
+  font-family:var(--fm); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); cursor:pointer;
+  border-radius:20px; border:1px solid transparent; transition:all .2s;
+}
+.ctab.on { background:var(--violet); color:#fff; }
+.ctab:not(.on):active { background:var(--v3); }
+
+.masthead {
+  margin:0 0 20px; padding:16px 20px;
+  background:linear-gradient(135deg, rgba(109,40,217,.06), rgba(162,28,175,.03));
+  border-top:1px solid var(--bsoft); border-bottom:1px solid var(--bsoft);
+}
+.mh-label  { font-family:var(--fm); font-size:9px; letter-spacing:.2em; color:var(--v2); text-transform:uppercase; margin-bottom:7px; }
+.mh-quote  { font-family:var(--fd); font-size:18px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.35; margin-bottom:5px; }
+.mh-attr   { font-family:var(--fm); font-size:10px; color:var(--muted); letter-spacing:.06em; }
+
+/* Provenance Sessions */
+.sessions-card {
+  margin:0 16px 20px; border-radius:14px;
+  overflow:hidden; background:var(--ink); cursor:pointer;
+  transition:transform .15s;
+}
+.sessions-card:active { transform:scale(.99); }
+.sc-top { padding:20px 20px 0; display:flex; gap:14px; align-items:center; }
+.sc-badge {
+  background:linear-gradient(135deg, var(--violet), var(--mag));
+  border-radius:8px; width:52px; height:52px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.sc-badge-text { font-family:var(--fm); font-size:7.5px; color:#fff; letter-spacing:.1em; text-transform:uppercase; line-height:1.4; text-align:center; }
+.sc-intro { flex:1; }
+.sc-label { font-family:var(--fm); font-size:9px; letter-spacing:.18em; color:var(--v2); text-transform:uppercase; margin-bottom:4px; }
+.sc-title { font-family:var(--fd); font-size:17px; font-weight:700; font-style:italic; color:#f2ecfa; line-height:1.2; }
+.sc-body  { padding:12px 20px 18px; }
+.sc-desc  { font-size:12px; color:rgba(242,236,250,.6); line-height:1.55; margin-bottom:12px; }
+.sc-eps   { display:flex; flex-direction:column; gap:7px; }
+.sc-ep {
+  background:rgba(255,255,255,.06); border-radius:8px;
+  padding:10px 12px; display:flex; gap:10px; align-items:center;
+  cursor:pointer; transition:background .15s;
+}
+.sc-ep:active { background:rgba(255,255,255,.1); }
+.sc-ep-num  { font-family:var(--fm); font-size:10px; color:var(--v2); flex-shrink:0; width:24px; }
+.sc-ep-info { flex:1; }
+.sc-ep-name { font-size:12px; font-weight:600; color:#f2ecfa; margin-bottom:1px; }
+.sc-ep-role { font-family:var(--fm); font-size:10px; color:rgba(242,236,250,.4); }
+.sc-ep-play {
+  width:28px; height:28px; border-radius:50%;
+  background:linear-gradient(135deg, var(--violet), var(--mag));
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  transition:transform .15s;
+}
+.sc-ep-play:active { transform:scale(.92); }
+.sc-coming {
+  padding:10px; background:rgba(255,255,255,.04);
+  border-radius:8px; border:1px dashed rgba(255,255,255,.12);
+  text-align:center; font-family:var(--fm);
+  font-size:10px; color:rgba(242,236,250,.3); letter-spacing:.08em;
+}
+
+/* Editorial card */
+.ecard { margin:0 16px 14px; }
+.ecard-art {
+  height:90px; display:flex; align-items:center;
+  justify-content:center; font-size:48px; position:relative; overflow:hidden;
+  border-radius:12px 12px 0 0;
+}
+.ecard-ov { position:absolute; inset:0; background:linear-gradient(180deg, transparent 30%, rgba(255,255,255,.96) 100%); }
+.ecard-body { padding:10px 14px 14px; background:var(--paper); border-radius:0 0 12px 12px; }
+.ecard-tag { font-family:var(--fm); font-size:9px; letter-spacing:.14em; color:var(--violet); text-transform:uppercase; margin-bottom:5px; }
+.ecard-title { font-family:var(--fd); font-size:17px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.3; margin-bottom:5px; }
+.ecard-desc { font-size:12px; color:var(--muted); line-height:1.6; }
+.ecard-footer {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--bsoft);
+}
+.ecard-artists { font-family:var(--fm); font-size:9.5px; color:var(--dim); }
+.ecard-read { font-family:var(--fm); font-size:9px; letter-spacing:.1em; color:var(--violet); text-transform:uppercase; }
+
+/* Row editorial */
+.erow { display:flex; gap:12px; align-items:flex-start; }
+.erow-icon { width:44px; height:44px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.erow-info { flex:1; }
+.erow-tag   { font-family:var(--fm); font-size:9px; letter-spacing:.12em; color:var(--violet); text-transform:uppercase; margin-bottom:3px; }
+.erow-title { font-family:var(--fd); font-size:14px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.25; margin-bottom:2px; }
+.erow-sub   { font-size:11px; color:var(--muted); }
+
+/* ═══════════════════════════════════
+   LINEAGE SCREEN
+═══════════════════════════════════ */
+#screen-lineage { background:var(--bg); }
+
+.lcard-body  { padding:0 14px 14px; }
+.lcard-ll    { font-family:var(--fm); font-size:9px; letter-spacing:.16em; color:var(--dim); text-transform:uppercase; margin-bottom:8px; }
+.li { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.li:last-child { margin-bottom:0; }
+.li-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.li-text { font-size:12px; color:var(--warm); line-height:1.4; }
+.li-text strong { color:var(--ink); font-weight:600; }
+
+/* ═══════════════════════════════════
+   COMMUNITY SCREEN
+═══════════════════════════════════ */
+#screen-community { background:var(--bg); }
+.page-sub { font-size:13px; color:var(--muted); line-height:1.5; margin-top:3px; padding:0 20px 16px; flex-shrink:0; }
+
+.tab-bar { display:flex; border-bottom:1px solid var(--bsoft); flex-shrink:0; }
+.tbar-tab {
+  flex:1; padding:11px 4px; text-align:center;
+  font-family:var(--fm); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--dim); cursor:pointer;
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all .2s;
+}
+.tbar-tab.on { color:var(--violet); border-color:var(--violet); }
+
+.cpost { padding:14px 20px; border-bottom:1px solid var(--bsoft); cursor:pointer; transition:background .15s; }
+.cpost:active { background:var(--v4); }
+.cp-meta { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.cp-av {
+  width:30px; height:30px; border-radius:50%;
+  background:linear-gradient(135deg, var(--v3), rgba(162,28,175,.15));
+  border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; flex-shrink:0;
+}
+.cp-user { font-size:12px; font-weight:600; color:var(--ink); }
+.cp-time { font-family:var(--fm); font-size:10px; color:var(--dim); }
+.cp-tag-wrap { margin-left:auto; }
+.cp-title { font-family:var(--fd); font-size:15px; font-weight:700; font-style:italic; color:var(--ink); margin-bottom:5px; line-height:1.3; }
+.cp-body  { font-size:12px; color:var(--warm); line-height:1.55; }
+.cp-footer { display:flex; gap:14px; margin-top:10px; }
+.cp-action { font-family:var(--fm); font-size:10px; color:var(--dim); letter-spacing:.06em; display:flex; align-items:center; gap:4px; cursor:pointer; transition:color .15s; }
+.cp-action:active { color:var(--violet); }
+
+.empty-state { padding:32px 20px; text-align:center; }
+.empty-icon  { font-size:32px; margin-bottom:12px; }
+.empty-title { font-size:14px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+.empty-body  { font-size:13px; color:var(--muted); line-height:1.6; }
+
+/* ═══════════════════════════════════
+   PROFILE SCREEN
+═══════════════════════════════════ */
+#screen-profile { background:var(--bg); }
+
+.phero {
+  height:130px;
+  background:linear-gradient(160deg, rgba(109,40,217,.18) 0%, rgba(162,28,175,.07) 60%, transparent 100%);
+  position:relative; flex-shrink:0; border-bottom:1px solid var(--bsoft);
+}
+.pav-wrap { position:absolute; bottom:-20px; left:20px; }
+.pav {
+  width:58px; height:58px; border-radius:50%;
+  background:linear-gradient(135deg, var(--violet), var(--mag));
+  border:3px solid var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; box-shadow:0 4px 14px rgba(109,40,217,.22);
+}
+.pinfo-row {
+  padding:32px 20px 10px;
+  display:flex; align-items:flex-end; justify-content:space-between;
+  flex-shrink:0;
+}
+.pname   { font-family:var(--fd); font-size:22px; font-weight:700; font-style:italic; color:var(--ink); }
+.phandle { font-family:var(--fm); font-size:10px; color:var(--muted); letter-spacing:.06em; margin-top:2px; }
+.pedit-btn {
+  font-family:var(--fm); font-size:9px; color:var(--violet);
+  letter-spacing:.1em; padding:5px 10px;
+  border:1px solid var(--border); border-radius:4px;
+  background:var(--paper); cursor:pointer; transition:background .15s;
+}
+.pedit-btn:active { background:var(--v3); }
+
+.pstats { display:grid; grid-template-columns:repeat(4,1fr); padding:0 16px 14px; gap:8px; flex-shrink:0; }
+.pstat {
+  background:var(--paper); border:1px solid var(--bsoft);
+  border-radius:10px; padding:10px 8px; text-align:center;
+}
+.ps-n { font-size:18px; font-weight:700; color:var(--ink); }
+.ps-l { font-family:var(--fm); font-size:8.5px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+
+.ppost { display:flex; gap:10px; padding:12px 20px; cursor:pointer; align-items:flex-start; transition:background .15s; }
+.ppost:active { background:var(--v4); }
+.pp-icon { width:38px; height:38px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; background:var(--v3); }
+.pp-body { flex:1; }
+.pp-title { font-family:var(--fd); font-size:14px; font-weight:700; font-style:italic; color:var(--ink); margin-bottom:2px; line-height:1.25; }
+.pp-meta  { font-family:var(--fm); font-size:10px; color:var(--dim); letter-spacing:.04em; }
+
+.pcomment { padding:12px 20px; border-bottom:1px solid var(--bsoft); cursor:pointer; transition:background .15s; }
+.pcomment:active { background:var(--v4); }
+.pc-on   { font-size:12px; color:var(--muted); margin-bottom:4px; }
+.pc-on strong { color:var(--ink); }
+.pc-text { font-size:13px; color:var(--warm); line-height:1.55; }
+.pc-time { font-family:var(--fm); font-size:10px; color:var(--dim); margin-top:5px; }
+
+.about-bio   { font-size:13px; color:var(--warm); line-height:1.7; margin-bottom:16px; padding:16px 20px 0; }
+.about-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 20px; }
+.about-stat  { background:var(--paper); border:1px solid var(--bsoft); border-radius:10px; padding:12px; text-align:center; }
+.as-n { font-size:20px; font-weight:700; color:var(--ink); }
+.as-l { font-family:var(--fm); font-size:9px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+
+/* ═══════════════════════════════════
+   ARTICLE VIEW (overlay)
+═══════════════════════════════════ */
+#article-view {
+  position:fixed; inset:0; z-index:200;
+  background:var(--bg);
+  display:flex; flex-direction:column;
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+#article-view.open { transform:translateY(0); }
+.av-header {
+  padding:52px 20px 16px;
+  display:flex; align-items:center; gap:12px;
+  border-bottom:1px solid var(--bsoft); flex-shrink:0;
+}
+.av-back {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--v3); border:none;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0; color:var(--violet);
+  transition:background .15s;
+}
+.av-back:active { background:var(--border); }
+.av-title-wrap { flex:1; }
+.av-tag   { font-family:var(--fm); font-size:9px; letter-spacing:.14em; color:var(--violet); text-transform:uppercase; margin-bottom:3px; }
+.av-title { font-family:var(--fd); font-size:16px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.2; }
+.av-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding:20px 20px 40px; }
+.av-scroll::-webkit-scrollbar { display:none; }
+.av-hero { font-size:52px; text-align:center; margin-bottom:16px; }
+.av-headline { font-family:var(--fd); font-size:24px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.25; margin-bottom:8px; }
+.av-byline { font-family:var(--fm); font-size:10px; color:var(--dim); letter-spacing:.08em; margin-bottom:20px; }
+.av-body { font-size:14px; color:var(--warm); line-height:1.75; }
+.av-body p { margin-bottom:14px; }
+.av-body h3 { font-family:var(--fd); font-size:18px; font-weight:700; font-style:italic; color:var(--ink); margin:20px 0 8px; }
+.av-body blockquote {
+  border-left:3px solid var(--violet); padding:10px 16px;
+  margin:16px 0; background:var(--v3); border-radius:0 8px 8px 0;
+  font-family:var(--fd); font-size:16px; font-style:italic; color:var(--ink2);
+}
+
+/* ═══════════════════════════════════
+   TOAST NOTIFICATION
+═══════════════════════════════════ */
+.toast {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:#f2ecfa;
+  padding:10px 18px; border-radius:20px;
+  font-size:13px; font-weight:500;
+  opacity:0; transition:all .3s; pointer-events:none;
+  z-index:300; white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ═══════════════════════════════════
+   MODAL (episode player)
+═══════════════════════════════════ */
+.modal-overlay {
+  position:fixed; inset:0; z-index:250;
+  background:rgba(26,15,46,.7); backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none; transition:opacity .25s;
+  display:flex; align-items:flex-end;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal-sheet {
+  background:var(--paper); border-radius:20px 20px 0 0;
+  padding:20px 20px 36px; width:100%;
+  transform:translateY(100%); transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+.modal-overlay.open .modal-sheet { transform:translateY(0); }
+.modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px; }
+.modal-title  { font-family:var(--fd); font-size:20px; font-weight:700; font-style:italic; color:var(--ink); margin-bottom:4px; }
+.modal-sub    { font-size:13px; color:var(--muted); margin-bottom:20px; }
+.modal-player {
+  background:linear-gradient(135deg, var(--violet), var(--mag));
+  border-radius:12px; padding:20px;
+  display:flex; align-items:center; gap:16px;
+}
+.modal-ep-art { font-size:36px; }
+.modal-ep-info { flex:1; }
+.modal-ep-name { font-size:15px; font-weight:700; color:#fff; margin-bottom:2px; }
+.modal-ep-role { font-size:12px; color:rgba(255,255,255,.6); }
+.modal-play-btn {
+  width:44px; height:44px; border-radius:50%;
+  background:rgba(255,255,255,.2); border:none;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .15s;
+}
+.modal-play-btn:active { background:rgba(255,255,255,.3); }
+.modal-progress { margin-top:16px; }
+.modal-progress-bar { height:4px; background:rgba(255,255,255,.2); border-radius:2px; overflow:hidden; margin-bottom:8px; }
+.modal-progress-fill { height:100%; width:35%; background:#fff; border-radius:2px; }
+.modal-time-row { display:flex; justify-content:space-between; }
+.modal-time { font-family:var(--fm); font-size:10px; color:rgba(255,255,255,.5); }
+.modal-close { width:100%; padding:14px; border:1.5px solid var(--border); border-radius:10px; background:transparent; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; margin-top:14px; transition:background .15s; }
+.modal-close:active { background:var(--v3); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ════════════════════════
+     SPLASH
+════════════════════════ -->
+<div class="screen active" id="screen-splash">
+  <div class="sp-bg">
+    <div class="sp-grad"></div>
+    <div class="sp-glow"></div>
+    <svg class="sp-rings" viewBox="0 0 330 330" fill="none">
+      <circle cx="165" cy="165" r="68"  stroke="rgba(139,92,246,.25)" stroke-width="1"/>
+      <circle cx="165" cy="165" r="108" stroke="rgba(109,40,217,.15)" stroke-width="1" stroke-dasharray="6 4"/>
+      <circle cx="165" cy="165" r="148" stroke="rgba(162,28,175,.1)"  stroke-width="1"/>
+      <circle cx="165" cy="165" r="163" stroke="rgba(109,40,217,.06)" stroke-width="1" stroke-dasharray="3 7"/>
+    </svg>
+    <div class="sp-wave">
+      <svg width="300" height="48" viewBox="0 0 300 48" fill="none">
+        <path d="M0 24 Q5 24 8 24 Q10 7 12 24 Q14 41 16 24 Q18 11 20 24 Q22 34 24 24 Q26 11 28 24 Q30 6 32 24 Q34 40 36 24 Q38 11 40 24 Q42 34 44 24 Q46 10 48 24 Q50 38 52 24 Q54 13 56 24 Q58 7 60 24 Q62 38 64 24 Q66 13 68 24 Q70 34 72 24 Q74 11 76 24 Q78 7 80 24 Q82 38 84 24 Q86 14 88 24 Q90 34 92 24 Q94 10 96 24 Q98 38 100 24 Q102 13 104 24 Q106 34 108 24 Q110 11 112 24 Q114 7 116 24 Q118 38 120 24 Q122 14 124 24 Q126 34 128 24 Q130 10 132 24 Q134 40 136 24 Q138 13 140 24 Q142 32 144 24 Q146 11 148 24 Q150 7 152 24 Q154 38 156 24 Q158 14 160 24 Q162 34 164 24 Q166 11 168 24 Q170 7 172 24 Q174 38 176 24 Q178 14 180 24 Q182 34 184 24 Q186 10 188 24 Q190 40 192 24 Q194 13 196 24 Q198 34 200 24 Q202 11 204 24 Q206 7 208 24 Q210 38 212 24 Q214 14 216 24 Q218 34 220 24 Q222 10 224 24 Q226 36 228 24 Q230 13 232 24 Q234 32 236 24 Q238 11 240 24 Q242 7 244 24 Q246 38 248 24 Q250 14 252 24 Q254 32 256 24 Q258 11 260 24 Q262 40 264 24 Q266 13 268 24 Q270 34 272 24 Q274 11 276 24 Q278 38 280 24 Q282 14 284 24 Q286 32 288 24 Q290 11 292 24 L300 24" stroke="url(#swg)" stroke-width="1.2" stroke-linecap="round"/>
+        <defs><linearGradient id="swg" x1="0" y1="0" x2="300" y2="0"><stop offset="0%" stop-color="rgba(109,40,217,0)"/><stop offset="35%" stop-color="rgba(139,92,246,.9)"/><stop offset="65%" stop-color="rgba(162,28,175,.9)"/><stop offset="100%" stop-color="rgba(162,28,175,0)"/></linearGradient></defs>
+      </svg>
+    </div>
+  </div>
+  <div class="sp-content">
+    <div class="sp-eyebrow">Music · Origins · Culture</div>
+    <div class="sp-title">Pro<em>ven</em>ance</div>
+    <div class="sp-hook">Every song has a story.<br><strong>Find out where yours came from.</strong></div>
+    <div class="sp-sub">Music transparency · lineage · culture</div>
+    <div class="sp-cta">
+      <button class="btn-main" onclick="go('trace')">Start exploring</button>
+      <button class="btn-sec" onclick="showToast('Sign in coming soon')">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     TRACE
+════════════════════════ -->
+<div class="screen" id="screen-trace">
+  <div class="trace-search-wrap">
+    <div class="trace-wm">Provenance</div>
+    <div class="tsearch">
+      <input class="ts-input" id="ts-input" placeholder="Song name, artist, or paste a link…" type="text" onkeydown="if(event.key==='Enter')startTrace()"/>
+      <div class="ts-div"></div>
+      <div class="ts-acts">
+        <button class="ts-act" onclick="showToast('Upload coming soon')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload audio
+        </button>
+        <button class="ts-act go" onclick="startTrace()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Trace it
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll" id="trace-scroll">
+
+    <!-- IDLE -->
+    <div id="t-idle" style="padding:16px 16px 24px">
+      <div class="sec" style="padding:0;margin-bottom:12px">What Provenance can tell you</div>
+      <div class="cap-cards">
+        <div class="cap-card" onclick="setInput('Is this AI generated?');startTrace()">
+          <div class="cap-icon" style="background:linear-gradient(135deg,rgba(180,83,9,.12),rgba(180,83,9,.06))">🔍</div>
+          <div class="cap-body">
+            <div class="cap-title">Is this AI generated?</div>
+            <div class="cap-desc">We analyse production signals to estimate the likelihood of AI involvement and tell you clearly what we found</div>
+          </div>
+        </div>
+        <div class="cap-card" onclick="setInput('Who influenced this sound?');startTrace()">
+          <div class="cap-icon" style="background:var(--v3)">🎤</div>
+          <div class="cap-body">
+            <div class="cap-title">Who influenced the sound?</div>
+            <div class="cap-desc">We identify the artists, producers, and traditions whose creative work shaped what you're hearing</div>
+          </div>
+        </div>
+        <div class="cap-card" onclick="setInput('Where did this come from?');startTrace()">
+          <div class="cap-icon" style="background:linear-gradient(135deg,rgba(162,28,175,.1),rgba(162,28,175,.05))">🌍</div>
+          <div class="cap-body">
+            <div class="cap-title">Where did it come from?</div>
+            <div class="cap-desc">We document the cultural lineage — the genres, movements, and communities behind the sound</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" style="padding:0;margin-bottom:10px;margin-top:8px">Try an artist or genre</div>
+      <div class="chips">
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Michael Jackson</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Prince</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Amy Winehouse</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Aretha Franklin</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Jimi Hendrix</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Nina Simone</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Afrobeats</button>
+        <button class="chip-btn" onclick="setInput(this.textContent);startTrace()">Gospel</button>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="t-loading" class="t-loading">
+      <div class="lwave">
+        <svg width="100%" height="46" viewBox="0 0 300 46" fill="none">
+          <path d="M0 23 Q5 23 8 23 Q10 7 12 23 Q14 39 16 23 Q18 11 20 23 Q22 33 24 23 Q26 11 28 23 Q30 6 32 23 Q34 39 36 23 Q38 11 40 23 Q42 33 44 23 Q46 10 48 23 Q50 37 52 23 Q54 13 56 23 Q58 7 60 23 Q62 37 64 23 Q66 13 68 23 Q70 33 72 23 Q74 11 76 23 Q78 7 80 23 Q82 37 84 23 Q86 14 88 23 Q90 33 92 23 Q94 10 96 23 Q98 37 100 23 Q102 13 104 23 Q106 33 108 23 Q110 11 112 23 Q114 7 116 23 Q118 37 120 23 Q122 14 124 23 Q126 33 128 23 Q130 10 132 23 Q134 38 136 23 Q138 13 140 23 Q142 31 144 23 Q146 11 148 23 Q150 7 152 23 Q154 37 156 23 Q158 14 160 23 Q162 33 164 23 Q166 11 168 23 Q170 7 172 23 Q174 37 176 23 Q178 14 180 23 Q182 33 184 23 Q186 10 188 23 Q190 38 192 23 Q194 13 196 23 Q198 33 200 23 Q202 11 204 23 Q206 7 208 23 Q210 37 212 23 Q214 14 216 23 Q218 33 220 23 Q222 10 224 23 Q226 35 228 23 Q230 13 232 23 Q234 31 236 23 Q238 11 240 23 Q242 7 244 23 Q246 37 248 23 Q250 14 252 23 Q254 31 256 23 Q258 11 260 23 Q262 38 264 23 Q266 13 268 23 Q270 33 272 23 Q274 11 276 23 Q278 37 280 23 Q282 14 284 23 Q286 31 288 23 Q290 11 292 23 L300 23" stroke="url(#lwg)" stroke-width="1.5" stroke-linecap="round"/>
+          <defs><linearGradient id="lwg" x1="0" y1="0" x2="300" y2="0"><stop offset="0%" stop-color="rgba(109,40,217,0)"/><stop offset="40%" stop-color="#8b5cf6"/><stop offset="65%" stop-color="#a21caf"/><stop offset="100%" stop-color="rgba(162,28,175,0)"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="llbl" id="llbl">Tracing the music…</div>
+      <div class="llbl-s" id="llbl-s">This takes a few seconds</div>
+      <div class="lsteps">
+        <div class="lstep" id="ls1"><div class="ldot"></div>Analysing production signals</div>
+        <div class="lstep" id="ls2"><div class="ldot"></div>Identifying vocal patterns</div>
+        <div class="lstep" id="ls3"><div class="ldot"></div>Mapping creative influences</div>
+        <div class="lstep" id="ls4"><div class="ldot"></div>Documenting cultural lineage</div>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div id="t-result" class="t-result">
+
+      <!-- Layer 1 -->
+      <div class="layer">
+        <div class="l1-song" id="result-song-meta">Midnight Feeling · Suno v4 · 2.1M streams</div>
+        <div class="verdict-card">
+          <div class="verdict-pill vp-hi">
+            <div class="vp-dot"></div>
+            High likelihood of AI-assisted production
+          </div>
+          <div class="verdict-sentence">
+            This track sounds like <em>Michael Jackson</em>, with influence from <em>Quincy Jones</em> and <em>Gospel vocal traditions</em>.
+          </div>
+          <div class="verdict-disclaimer">These characteristics can also occur in carefully engineered human recordings.</div>
+        </div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="layer">
+        <div class="sec" style="padding:0;margin-bottom:10px">Production Signals</div>
+        <div class="signal-card">
+          <div class="signal-row"><div class="signal-lbl">Pitch correction</div><div class="signal-val">Moderate–High</div></div>
+          <div class="signal-row"><div class="signal-lbl">Breath presence</div><div class="signal-val">Low</div></div>
+          <div class="signal-row"><div class="signal-lbl">Timing regularity</div><div class="signal-val">High</div></div>
+          <div class="signal-row"><div class="signal-lbl">Spectral smoothing</div><div class="signal-val">High</div></div>
+          <div class="signal-overall">
+            <div class="so-lbl">Overall assessment</div>
+            <div class="so-val">Moderate–High likelihood of AI-assisted production</div>
+          </div>
+          <div class="signal-note">These characteristics can also occur in carefully engineered human recordings.</div>
+        </div>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="layer">
+        <div class="sec" style="padding:0;margin-bottom:10px">Human Contribution</div>
+        <div class="hc-card">
+          <div class="hc-row"><div class="hc-role">Songwriting</div><div class="hc-val hcv-human">Human-led</div></div>
+          <div class="hc-row"><div class="hc-role">Composition</div><div class="hc-val hcv-human">Human-led</div></div>
+          <div class="hc-row"><div class="hc-role">Vocal performance</div><div class="hc-val hcv-mixed">Mixed indicators</div></div>
+          <div class="hc-row"><div class="hc-role">Production</div><div class="hc-val hcv-ai">AI-assisted</div></div>
+          <div class="hc-row"><div class="hc-role">Mixing & mastering</div><div class="hc-val hcv-human">Human-led</div></div>
+        </div>
+      </div>
+
+      <!-- Layer 4 -->
+      <div class="layer">
+        <div class="sec" style="padding:0;margin-bottom:10px">Creative Lineage</div>
+        <div class="lineage-card">
+          <div class="lineage-row" onclick="openArticle('mj')">
+            <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(109,40,217,.12),rgba(162,28,175,.08))">🕺</div>
+            <div class="lr-body">
+              <div class="lr-type">Vocal influence</div>
+              <div class="lr-name">Michael Jackson</div>
+              <div class="lr-desc">Phrasing, breath patterns, and emotional delivery reflect Jackson's 1980s recordings.</div>
+            </div>
+            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="lineage-row" onclick="openArticle('quincy')">
+            <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(180,83,9,.1),rgba(180,83,9,.05))">🎼</div>
+            <div class="lr-body">
+              <div class="lr-type">Production influence</div>
+              <div class="lr-name">Quincy Jones</div>
+              <div class="lr-desc">Orchestral arrangement and layered harmonics carry Jones' production signature.</div>
+            </div>
+            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="lineage-row" onclick="openArticle('gospel')">
+            <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(162,28,175,.1),rgba(162,28,175,.05))">🎵</div>
+            <div class="lr-body">
+              <div class="lr-type">Genre lineage</div>
+              <div class="lr-name">Pop, Funk, R&B, Gospel</div>
+              <div class="lr-desc">1980s American popular music rooted in Black Gospel and Soul traditions.</div>
+            </div>
+            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="lineage-note">This section documents influence. It does not imply ownership or infringement.</div>
+        </div>
+      </div>
+
+      <!-- Justice note -->
+      <div class="justice">
+        <div class="justice-lbl">Artist Recognition</div>
+        <div class="justice-text"><strong>Michael Jackson's estate</strong> currently receives no automatic compensation from AI systems that may be influenced by his work. Provenance documents this so the conversation can happen.</div>
+      </div>
+
+      <!-- Share row -->
+      <div class="share-row">
+        <button class="sbtn" onclick="showToast('Copied link to share!')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+        <button class="sbtn" onclick="showToast('Saved to your profile')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+      </div>
+
+      <!-- Layer 5: Technical -->
+      <div class="layer">
+        <div class="coll-toggle" onclick="toggleColl(this)">
+          <div>
+            <div class="coll-lbl">Technical details</div>
+            <div class="coll-sub">Confidence scores & detailed metrics</div>
+          </div>
+          <svg class="coll-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="coll-body">
+          <div class="tech-inner">
+            <div class="tech-row"><div class="tech-lbl">MJ Estate — vocal influence</div><div class="tech-bar"><div class="tech-fill" style="width:72%"></div></div><div class="tech-val">72%</div></div>
+            <div class="tech-row"><div class="tech-lbl">Quincy Jones — production</div><div class="tech-bar"><div class="tech-fill" style="width:11%"></div></div><div class="tech-val">11%</div></div>
+            <div class="tech-row"><div class="tech-lbl">Prompt Author</div><div class="tech-bar"><div class="tech-fill" style="width:9%"></div></div><div class="tech-val">9%</div></div>
+            <div class="tech-row"><div class="tech-lbl">AI Model (Suno v4)</div><div class="tech-bar"><div class="tech-fill" style="width:8%"></div></div><div class="tech-val">8%</div></div>
+            <div class="tech-row"><div class="tech-lbl">Model confidence</div><div class="tech-bar"><div class="tech-fill" style="width:84%"></div></div><div class="tech-val">84%</div></div>
+            <div class="tech-row"><div class="tech-lbl">Signal confidence</div><div class="tech-bar"><div class="tech-fill" style="width:79%"></div></div><div class="tech-val">79%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- New trace button -->
+      <div style="padding:14px 16px 0">
+        <button class="btn-main" style="background:var(--v3);color:var(--violet);box-shadow:none" onclick="resetTrace()">
+          ← Trace another track
+        </button>
+      </div>
+
+    </div>
+  </div><!-- end trace scroll -->
+
+  <div class="bnav">
+    <div class="ni on" onclick="go('trace')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="nil">Trace</span></div>
+    <div class="ni" onclick="go('discover')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="nil">Discover</span></div>
+    <div class="ni" onclick="go('lineage')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nil">Lineage</span></div>
+    <div class="ni" onclick="go('community')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nil">Community</span></div>
+    <div class="ni" onclick="go('profile')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nil">Profile</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     DISCOVER
+════════════════════════ -->
+<div class="screen" id="screen-discover">
+  <div class="disc-topbar">
+    <span class="disc-logo">Discover</span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dim);cursor:pointer" onclick="showToast('Notifications coming soon')"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+  </div>
+  <div class="ctabs">
+    <div class="ctab on"  onclick="filterDiscover('all',this)">All</div>
+    <div class="ctab"     onclick="filterDiscover('sessions',this)">Sessions</div>
+    <div class="ctab"     onclick="filterDiscover('production',this)">Production Stories</div>
+    <div class="ctab"     onclick="filterDiscover('notes',this)">Creation Notes</div>
+    <div class="ctab"     onclick="filterDiscover('culture',this)">Cultural Pieces</div>
+    <div class="ctab"     onclick="filterDiscover('between',this)">Between the Notes</div>
+  </div>
+
+  <div class="scroll" style="padding-bottom:8px">
+    <div class="masthead">
+      <div class="mh-label">From the archive</div>
+      <div class="mh-quote">"Music doesn't appear from nowhere. Every sound has a story and a lineage."</div>
+      <div class="mh-attr">— Provenance</div>
+    </div>
+
+    <!-- Sessions -->
+    <div class="sessions-card" data-type="sessions">
+      <div class="sc-top">
+        <div class="sc-badge"><div class="sc-badge-text">Prov.<br>Sessions</div></div>
+        <div class="sc-intro">
+          <div class="sc-label">Provenance Sessions</div>
+          <div class="sc-title">In conversation with the humans behind the sound</div>
+        </div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-desc">Musicians, producers, songwriters, choreographers — conversations about creative contribution, artistic lineage, and what it means to make something in the age of AI.</div>
+        <div class="sc-eps">
+          <div class="sc-ep" onclick="openEpisode('Nile Rodgers','Producer · CHIC · Daft Punk · Bowie','🎸')">
+            <div class="sc-ep-num">EP 1</div>
+            <div class="sc-ep-info">
+              <div class="sc-ep-name">Nile Rodgers</div>
+              <div class="sc-ep-role">Producer · CHIC · Daft Punk · Bowie</div>
+            </div>
+            <div class="sc-ep-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div class="sc-ep" onclick="openEpisode('Imogen Heap','Artist · Songwriter · Technology & music','🎹')">
+            <div class="sc-ep-num">EP 2</div>
+            <div class="sc-ep-info">
+              <div class="sc-ep-name">Imogen Heap</div>
+              <div class="sc-ep-role">Artist · Songwriter · Technology & music</div>
+            </div>
+            <div class="sc-ep-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div class="sc-ep" onclick="openEpisode('Rennie Harris','Choreographer · Hip-hop dance lineage','💃')">
+            <div class="sc-ep-num">EP 3</div>
+            <div class="sc-ep-info">
+              <div class="sc-ep-name">Rennie Harris</div>
+              <div class="sc-ep-role">Choreographer · Hip-hop dance lineage</div>
+            </div>
+            <div class="sc-ep-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+          </div>
+          <div class="sc-coming" onclick="showToast('Suggest a guest feature coming soon')">More episodes coming · Suggest a guest →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editorial content -->
+    <div data-type="production" class="ecard card" onclick="openArticle('quincy')" style="border:1px solid var(--bsoft)">
+      <div class="ecard-art" style="background:linear-gradient(135deg,#2a0a4e,#4a1a6c)">🎼<div class="ecard-ov"></div></div>
+      <div class="ecard-body">
+        <div class="ecard-tag">Production Story</div>
+        <div class="ecard-title">How Quincy Jones shaped the voice AI learned to love</div>
+        <div class="ecard-desc">The orchestral precision, the layered harmonics, the breath between the beat — Quincy Jones' production fingerprint is so embedded in pop that AI absorbed it without ever being told what to copy.</div>
+        <div class="ecard-footer">
+          <div class="ecard-artists">MJ · Sinatra · Ray Charles</div>
+          <div class="ecard-read">Read →</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:0 0 4px">
+      <div data-type="culture" class="row-item" onclick="openArticle('gospel')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(162,28,175,.15),rgba(109,40,217,.1))">🌍</div><div class="erow-info"><div class="erow-tag">Cultural Piece</div><div class="erow-title">Gospel, soul, and the roots of AI's favourite sound</div><div class="erow-sub">Aretha Franklin · Sam Cooke · Mahalia Jackson</div></div></div>
+      </div>
+      <div data-type="between" class="row-item" onclick="openArticle('silence')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(5,150,105,.12),rgba(5,150,105,.06))">🎷</div><div class="erow-info"><div class="erow-tag">Between the Notes</div><div class="erow-title">What silence taught jazz — and what AI forgot</div><div class="erow-sub">Miles Davis · John Coltrane</div></div></div>
+      </div>
+      <div data-type="notes" class="row-item" onclick="openArticle('signals')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(180,83,9,.12),rgba(180,83,9,.06))">📝</div><div class="erow-info"><div class="erow-tag">Creation Notes</div><div class="erow-title">The vocal processing choices that signal AI involvement</div><div class="erow-sub">A short guide to what your ears are detecting</div></div></div>
+      </div>
+      <div data-type="production" class="row-item" onclick="openArticle('timbaland')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(109,40,217,.15),rgba(109,40,217,.07))">🥁</div><div class="erow-info"><div class="erow-tag">Production Story</div><div class="erow-title">The Timbaland rhythm that redefined everything</div><div class="erow-sub">Timbaland · Aaliyah · Missy Elliott</div></div></div>
+      </div>
+      <div data-type="culture" class="row-item" onclick="openArticle('afrobeats')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(162,28,175,.12),rgba(162,28,175,.06))">🌴</div><div class="erow-info"><div class="erow-tag">Cultural Piece</div><div class="erow-title">Afrobeats and the rhythm AI borrows without credit</div><div class="erow-sub">Fela Kuti · Burna Boy · Wizkid</div></div></div>
+      </div>
+      <div data-type="between" class="row-item" onclick="openArticle('amy')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(5,150,105,.12),rgba(5,150,105,.06))">🎹</div><div class="erow-info"><div class="erow-tag">Between the Notes</div><div class="erow-title">The imperfection in Amy Winehouse's voice</div><div class="erow-sub">Amy Winehouse · Billie Holiday</div></div></div>
+      </div>
+      <div data-type="production" class="row-item" onclick="openArticle('hendrix')">
+        <div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(109,40,217,.15),rgba(109,40,217,.07))">🎸</div><div class="erow-info"><div class="erow-tag">Production Story</div><div class="erow-title">Jimi Hendrix and the guitar language AI speaks</div><div class="erow-sub">Hendrix · Stevie Ray Vaughan</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bnav">
+    <div class="ni" onclick="go('trace')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="nil">Trace</span></div>
+    <div class="ni on"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="nil">Discover</span></div>
+    <div class="ni" onclick="go('lineage')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nil">Lineage</span></div>
+    <div class="ni" onclick="go('community')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nil">Community</span></div>
+    <div class="ni" onclick="go('profile')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nil">Profile</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     LINEAGE
+════════════════════════ -->
+<div class="screen" id="screen-lineage">
+  <div class="page-header" style="padding-bottom:16px">
+    <div class="page-title">Lineage</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:3px;line-height:1.5">Where music comes from — artist influence, genre origins, creative relationships</div>
+  </div>
+  <div class="scroll" style="padding-bottom:8px">
+    <div class="sec" style="margin-top:4px">Recently traced</div>
+
+    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
+      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
+        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#2a0a4e,#6a1a9c)">🎤</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Midnight Feeling</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Suno v4 · 2.1M streams</div></div>
+      </div>
+      <div class="lcard-body">
+        <div class="lcard-ll">Creative Lineage</div>
+        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Vocal influence — <strong>Michael Jackson</strong></div></div>
+        <div class="li"><div class="li-dot" style="background:var(--amber)"></div><div class="li-text">Production inspired by — <strong>Quincy Jones</strong></div></div>
+        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>1980s Pop, Funk, and Gospel traditions</strong></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
+      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
+        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#1a0a3e,#5a1a9c)">🎵</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Purple Summer</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Udio · 890K streams</div></div>
+      </div>
+      <div class="lcard-body">
+        <div class="lcard-ll">Creative Lineage</div>
+        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Vocal and production influence — <strong>Prince</strong></div></div>
+        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>Minneapolis Sound, Funk, R&B</strong></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
+      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
+        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#2a0a3e,#5a1a7c)">🎸</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Golden Hour Drive</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Udio · 340K streams</div></div>
+      </div>
+      <div class="lcard-body">
+        <div class="lcard-ll">Creative Lineage</div>
+        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Guitar influence — <strong>Jimi Hendrix</strong></div></div>
+        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>Classic Blues and Psychedelic Rock</strong></div></div>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="sec">Browse by genre</div>
+    <div style="padding:0 0 4px">
+      <div class="row-item" onclick="showToast('R&B and Soul archive coming soon')"><div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(109,40,217,.15),rgba(109,40,217,.07))">🎹</div><div class="erow-info"><div class="erow-tag">Genre Lineage</div><div class="erow-title">R&B and Soul</div><div class="erow-sub">Artists · Producers · Cultural origins</div></div></div></div>
+      <div class="row-item" onclick="showToast('Afrobeats archive coming soon')"><div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(162,28,175,.15),rgba(162,28,175,.07))">🌍</div><div class="erow-info"><div class="erow-tag">Genre Lineage</div><div class="erow-title">Afrobeats</div><div class="erow-sub">Artists · Producers · Cultural origins</div></div></div></div>
+      <div class="row-item" onclick="showToast('Jazz archive coming soon')"><div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(5,150,105,.12),rgba(5,150,105,.06))">🎷</div><div class="erow-info"><div class="erow-tag">Genre Lineage</div><div class="erow-title">Jazz</div><div class="erow-sub">Artists · Producers · Cultural origins</div></div></div></div>
+      <div class="row-item" onclick="showToast('Blues & Rock archive coming soon')"><div class="erow"><div class="erow-icon" style="background:linear-gradient(135deg,rgba(180,83,9,.12),rgba(180,83,9,.06))">🎸</div><div class="erow-info"><div class="erow-tag">Genre Lineage</div><div class="erow-title">Blues and Rock</div><div class="erow-sub">Artists · Producers · Cultural origins</div></div></div></div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni" onclick="go('trace')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="nil">Trace</span></div>
+    <div class="ni" onclick="go('discover')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="nil">Discover</span></div>
+    <div class="ni on"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nil">Lineage</span></div>
+    <div class="ni" onclick="go('community')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nil">Community</span></div>
+    <div class="ni" onclick="go('profile')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nil">Profile</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     COMMUNITY
+════════════════════════ -->
+<div class="screen" id="screen-community">
+  <div class="page-header">
+    <div class="page-title">Community</div>
+  </div>
+  <div class="page-sub">Annotations, discussions, and production insights from the Provenance community</div>
+  <div class="tab-bar">
+    <div class="tbar-tab on" onclick="switchTab(this,'comm-music','comm-you')">Music Community</div>
+    <div class="tbar-tab"    onclick="switchTab(this,'comm-you','comm-music')">Your Activity</div>
+  </div>
+  <div class="scroll" style="padding-bottom:8px">
+    <div id="comm-music">
+      <div class="cpost">
+        <div class="cp-meta">
+          <div class="cp-av">🎵</div>
+          <div><div class="cp-user">maya_listens</div><div class="cp-time">2h ago</div></div>
+          <div class="cp-tag-wrap"><span class="tag" style="background:var(--v3);color:var(--violet)">Creation Note</span></div>
+        </div>
+        <div class="cp-title">The breath is the tell</div>
+        <div class="cp-body">In Midnight Feeling, the absence of natural breath between phrases is the clearest signal. Human singers breathe. AI-assisted vocals often don't — or breathe in places that don't align with natural phrasing.</div>
+        <div class="cp-footer">
+          <div class="cp-action" onclick="showToast('14 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 14 replies</div>
+          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 38</div>
+        </div>
+      </div>
+      <div class="cpost">
+        <div class="cp-meta">
+          <div class="cp-av">🎼</div>
+          <div><div class="cp-user">prodhistory</div><div class="cp-time">5h ago</div></div>
+          <div class="cp-tag-wrap"><span class="tag" style="background:var(--green-s);color:var(--green)">Production Story</span></div>
+        </div>
+        <div class="cp-title">Quincy's fingerprint is everywhere and we don't talk about it enough</div>
+        <div class="cp-body">Three AI tracks this week alone show strong Quincy Jones production lineage signals. The way he used string arrangements as emotional counterpoint is something AI has clearly absorbed deeply from his catalogue.</div>
+        <div class="cp-footer">
+          <div class="cp-action" onclick="showToast('6 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 6 replies</div>
+          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 62</div>
+        </div>
+      </div>
+      <div class="cpost">
+        <div class="cp-meta">
+          <div class="cp-av">🌍</div>
+          <div><div class="cp-user">culturalrecord</div><div class="cp-time">1d ago</div></div>
+          <div class="cp-tag-wrap"><span class="tag" style="background:var(--mag-s);color:var(--mag)">Cultural Piece</span></div>
+        </div>
+        <div class="cp-title">Afrobeats is the most borrowed sound in AI music and nobody is saying it</div>
+        <div class="cp-body">Run any trending AI track through a rhythm analysis and you'll find Afrobeats patterns. The 12/8 feel, the percussion placement, the call-and-response vocal layering. The lineage is being used and the origins are being erased.</div>
+        <div class="cp-footer">
+          <div class="cp-action" onclick="showToast('29 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 29 replies</div>
+          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 114</div>
+        </div>
+      </div>
+    </div>
+    <div id="comm-you" style="display:none">
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-title">Your recorded perspective on music</div>
+        <div class="empty-body">Your analyses, notes, and comments will appear here once you start contributing.</div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni" onclick="go('trace')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="nil">Trace</span></div>
+    <div class="ni" onclick="go('discover')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="nil">Discover</span></div>
+    <div class="ni" onclick="go('lineage')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nil">Lineage</span></div>
+    <div class="ni on"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nil">Community</span></div>
+    <div class="ni" onclick="go('profile')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nil">Profile</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     PROFILE
+════════════════════════ -->
+<div class="screen" id="screen-profile">
+  <div class="phero"><div class="pav-wrap"><div class="pav">🎧</div></div></div>
+  <div class="pinfo-row">
+    <div><div class="pname">Jules</div><div class="phandle">@jules · Member since 2025</div></div>
+    <div class="pedit-btn" onclick="showToast('Edit profile coming soon')">Edit</div>
+  </div>
+  <div class="pstats">
+    <div class="pstat"><div class="ps-n">48</div><div class="ps-l">Traced</div></div>
+    <div class="pstat"><div class="ps-n">12</div><div class="ps-l">Posts</div></div>
+    <div class="pstat"><div class="ps-n">34</div><div class="ps-l">Comments</div></div>
+    <div class="pstat"><div class="ps-n">7</div><div class="ps-l">Saved</div></div>
+  </div>
+  <div class="tab-bar">
+    <div class="tbar-tab on" onclick="switchTab(this,'pp-posts','pp-comments','pp-about')">Posts</div>
+    <div class="tbar-tab"    onclick="switchTab(this,'pp-comments','pp-posts','pp-about')">Comments</div>
+    <div class="tbar-tab"    onclick="switchTab(this,'pp-about','pp-posts','pp-comments')">About</div>
+  </div>
+  <div class="scroll" style="padding-bottom:8px">
+    <div id="pp-posts">
+      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🎹</div><div class="pp-body"><div class="pp-title">Why timing regularity is the most reliable AI signal</div><div class="pp-meta">Creation Note · 3d ago</div></div></div>
+      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🌍</div><div class="pp-body"><div class="pp-title">The Gospel roots in Midnight Feeling nobody is talking about</div><div class="pp-meta">Cultural Piece · 1w ago</div></div></div>
+      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🎼</div><div class="pp-body"><div class="pp-title">Tracing Quincy Jones' influence across 4 AI tracks this month</div><div class="pp-meta">Production Story · 2w ago</div></div></div>
+      <div style="padding:20px;font-family:var(--fm);font-size:10px;color:var(--dim);text-align:center;letter-spacing:.08em">You do not have any more posts yet</div>
+    </div>
+    <div id="pp-comments" style="display:none">
+      <div class="pcomment"><div class="pc-on">On <strong>How Quincy Jones shaped the voice AI learned to love</strong></div><div class="pc-text">The point about string counterpoint is exactly right. You can hear it most clearly in the mid-range — it fills the space that a human vocal performance would leave naturally.</div><div class="pc-time">1d ago</div></div>
+      <div class="pcomment"><div class="pc-on">On <strong>Afrobeats and the rhythm AI borrows without credit</strong></div><div class="pc-text">This is the piece I've been waiting for. The 12/8 feel is everywhere in AI music right now and the conversation about its origins is completely absent from mainstream discourse.</div><div class="pc-time">3d ago</div></div>
+    </div>
+    <div id="pp-about" style="display:none">
+      <div class="about-bio">Music researcher and listener. Interested in production history, cultural lineage, and how AI is reshaping the relationship between artists and their legacies.</div>
+      <div class="about-stats">
+        <div class="about-stat"><div class="as-n">48</div><div class="as-l">Traces</div></div>
+        <div class="about-stat"><div class="as-n">12</div><div class="as-l">Posts</div></div>
+        <div class="about-stat"><div class="as-n">34</div><div class="as-l">Comments</div></div>
+        <div class="about-stat"><div class="as-n">7</div><div class="as-l">Saved</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni" onclick="go('trace')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="nil">Trace</span></div>
+    <div class="ni" onclick="go('discover')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="nil">Discover</span></div>
+    <div class="ni" onclick="go('lineage')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nil">Lineage</span></div>
+    <div class="ni" onclick="go('community')"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nil">Community</span></div>
+    <div class="ni on"><svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nil">Profile</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════
+     ARTICLE VIEW (overlay)
+════════════════════════ -->
+<div id="article-view">
+  <div class="av-header">
+    <button class="av-back" onclick="closeArticle()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="av-title-wrap">
+      <div class="av-tag" id="av-tag">Production Story</div>
+      <div class="av-title" id="av-title">Article Title</div>
+    </div>
+  </div>
+  <div class="av-scroll" id="av-body"></div>
+</div>
+
+<!-- Episode Player Modal -->
+<div class="modal-overlay" id="episode-modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="ep-name">Episode</div>
+    <div class="modal-sub" id="ep-role">Role</div>
+    <div class="modal-player">
+      <div class="modal-ep-art" id="ep-art">🎵</div>
+      <div class="modal-ep-info">
+        <div class="modal-ep-name" id="ep-name2">Episode</div>
+        <div class="modal-ep-role" id="ep-role2">Provenance Sessions</div>
+      </div>
+      <button class="modal-play-btn" id="play-btn" onclick="togglePlay()">
+        <svg id="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </button>
+    </div>
+    <div class="modal-progress">
+      <div class="modal-progress-bar"><div class="modal-progress-fill" id="progress-fill"></div></div>
+      <div class="modal-time-row">
+        <span class="modal-time" id="time-curr">0:00</span>
+        <span class="modal-time">42:18</span>
+      </div>
+    </div>
+    <button class="modal-close" onclick="closeEpisode()">Close</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+</div><!-- end .app -->
+
+<!-- ════════════════════════
+     ARTICLES DATA
+════════════════════════ -->
+<script>
+const ARTICLES = {
+  quincy: {
+    tag: 'Production Story',
+    title: 'How Quincy Jones shaped the voice AI learned to love',
+    hero: '🎼',
+    body: `
+      <div class="av-hero">🎼</div>
+      <div class="av-headline">How Quincy Jones shaped the voice AI learned to love</div>
+      <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>There is a sound that appears in more AI-generated music than almost any other. It arrives in the space between notes — a particular kind of orchestral warmth, a layering of harmonics that feels simultaneously lush and precise. Most listeners sense it without knowing its name. Its name is Quincy Jones.</p>
+        <h3>The Architecture of Influence</h3>
+        <p>Between 1979 and 1991, Quincy Jones produced what are arguably the most technically perfect pop recordings ever made. Off the Wall, Thriller, Bad — these albums were not just commercial triumphs. They were instruction manuals. Every producer who followed studied them. Every studio engineer learned from their arrangements. And the AI systems trained on decades of recorded music absorbed them as defining examples of what pop music should sound like.</p>
+        <blockquote>"Recording is not just about capturing sound. It's about creating a space that feels real even when it isn't."</blockquote>
+        <h3>What AI Took Without Knowing</h3>
+        <p>The specific techniques that define Jones' production fingerprint are now embedded in AI music generation without attribution. The way he layered string sections to create emotional counterpoint. The precise placement of backing vocals in the stereo field. The balance between warmth in the low-mids and clarity in the high frequencies. These are not generic production choices. They are the result of decades of craft, experimentation, and accumulated knowledge.</p>
+        <p>When an AI system generates a track that sounds warm, orchestrated, and emotionally resonant, it is often unconsciously channeling these specific choices — learned from the catalogue that Jones spent a lifetime building.</p>
+        <h3>Who Carries the Lineage</h3>
+        <p>The Michael Jackson and Quincy Jones estates are two of the most clearly identifiable influences in contemporary AI music. Their work together represented a synthesis of R&B, pop, gospel, and orchestral composition that became the dominant template for commercial music production globally. That template now lives inside the training data of every major AI music generation system.</p>
+        <p>Provenance exists partly to make this visible — to ensure that when a listener hears that warmth, that precision, that particular kind of orchestral humanity in an AI track, they know where it came from.</p>
+      </div>
+    `
+  },
+  gospel: {
+    tag: 'Cultural Piece',
+    title: 'Gospel, soul, and the roots of AI\'s favourite sound',
+    hero: '🌍',
+    body: `
+      <div class="av-hero">🌍</div>
+      <div class="av-headline">Gospel, soul, and the roots of AI's favourite sound</div>
+      <div class="av-byline">CULTURAL PIECE · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>There is a particular kind of vocal performance that AI music generation systems produce more than any other. It is emotionally expansive, melodically adventurous, built around long sustained notes that shift in pitch and texture. Its name is melisma. Its home is Black gospel music.</p>
+        <h3>The Sound of Testimony</h3>
+        <p>Gospel music developed in Black American communities as a form of spiritual testimony and communal expression. Its vocal traditions — the call and response, the melismatic runs, the raw emotional delivery that moves between speaking and singing — were not entertainment techniques. They were expressions of lived experience, of faith, of survival.</p>
+        <blockquote>"You have to feel it before you can sing it. And the feeling comes from something real."</blockquote>
+        <h3>How It Moved Into Pop</h3>
+        <p>Through artists like Aretha Franklin, Sam Cooke, Mahalia Jackson, and later Whitney Houston and Mariah Carey, gospel vocal technique entered mainstream popular music. The techniques remained but their origins became increasingly invisible to wider audiences who encountered them through pop and R&B rather than church.</p>
+        <h3>What AI Absorbed</h3>
+        <p>AI music generation systems trained on decades of popular music recordings absorbed these vocal techniques as core characteristics of expressive singing. They learned that melismatic runs signal emotion. They learned the patterns of call and response. They learned the particular timbre that comes from gospel-trained voices.</p>
+        <p>What they did not learn — because it was not in the training data — was the cultural context. The communities that built this sound. The history that made it necessary. The people whose creative labour made it possible.</p>
+        <p>Provenance exists to put that context back.</p>
+      </div>
+    `
+  },
+  silence: {
+    tag: 'Between the Notes',
+    title: 'What silence taught jazz — and what AI forgot',
+    hero: '🎷',
+    body: `
+      <div class="av-hero">🎷</div>
+      <div class="av-headline">What silence taught jazz — and what AI forgot</div>
+      <div class="av-byline">BETWEEN THE NOTES · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Miles Davis said it simply: "It's not the notes you play, it's the notes you don't play." This is one of the most repeated quotes in music. It is also one of the most misunderstood — and one of the most revealing observations about what AI music currently lacks.</p>
+        <h3>The Meaning of Space</h3>
+        <p>In jazz, silence is not the absence of music. It is part of the music. A rest is a choice. A pause is a statement. The space between a note and its resolution creates tension that the resolution releases. Without that space — without the willingness to leave room — music becomes noise, however beautiful its individual components might be.</p>
+        <blockquote>"Don't play what's there. Play what's not there."</blockquote>
+        <h3>What AI Music Fills</h3>
+        <p>Listen carefully to AI-generated music and you will notice that it is rarely empty. There is almost always something happening — a pad, a texture, a subtle harmonic element filling the space that a human musician might leave open. This is not a technical limitation. It is a fundamental misunderstanding of what music is for.</p>
+        <p>Human music-making involves constant decisions about what not to play. A jazz musician's silence can be more expressive than their notes. A gospel singer's breath before a phrase carries as much meaning as the phrase itself. These are choices that emerge from embodied experience, from understanding music as communication rather than sound generation.</p>
+        <h3>What We Lose</h3>
+        <p>The question this raises is not whether AI can ever learn to use silence effectively. It may well develop that capacity. The question is what we lose in the period before it does — and whether we notice the loss while it is happening.</p>
+      </div>
+    `
+  },
+  signals: {
+    tag: 'Creation Notes',
+    title: 'The vocal processing choices that signal AI involvement',
+    hero: '📝',
+    body: `
+      <div class="av-hero">📝</div>
+      <div class="av-headline">The vocal processing choices that signal AI involvement</div>
+      <div class="av-byline">CREATION NOTES · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Your ears are already detecting something when you listen to an AI-generated vocal. Most people describe it as a feeling that something is slightly off — too smooth, too perfect, somehow hollow. This is a short guide to what you're actually hearing.</p>
+        <h3>Pitch Correction</h3>
+        <p>Human singers are constantly adjusting pitch, microtonally, in ways that create subtle variation and emotional expressiveness. AI vocals tend to lock to pitch with mathematical precision. This creates a characteristic smoothness that experienced listeners can identify — notes that are technically correct but lack the micro-variations that make human singing feel alive.</p>
+        <h3>Breath Presence</h3>
+        <p>Human singing involves breath — audible inhales before phrases, the slight changes in tone as breath runs out, the natural imperfections of a physical body producing sound. AI-generated vocals typically have low or absent breath presence. The vocal appears to continue without the physical interruptions that characterise human performance.</p>
+        <blockquote>"The imperfections are the humanity. When they disappear, something essential goes with them."</blockquote>
+        <h3>Timing Regularity</h3>
+        <p>Human performers naturally drift slightly from rigid rhythmic grids — a quality sometimes called 'feel' or 'groove'. AI music tends toward high timing regularity, sitting precisely on the beat in ways that create a mechanical quality even when the production is otherwise sophisticated.</p>
+        <h3>Spectral Smoothing</h3>
+        <p>The frequency spectrum of AI-generated audio is often unusually smooth — lacking the natural resonances, room sounds, and harmonic complexity of recorded human performance. This spectral evenness is one of the more technically complex signals but experienced engineers and musicians often identify it quickly.</p>
+        <p>None of these signals is definitive in isolation. All of them together create the impression your ears are already receiving.</p>
+      </div>
+    `
+  },
+  mj: {
+    tag: 'Creative Lineage',
+    title: 'Michael Jackson — vocal influence',
+    hero: '🕺',
+    body: `
+      <div class="av-hero">🕺</div>
+      <div class="av-headline">Michael Jackson — vocal influence in AI music</div>
+      <div class="av-byline">CREATIVE LINEAGE · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Michael Jackson's vocal style is one of the most recognisable and widely imitated in the history of recorded music. His techniques — the specific phrasing, the percussive interjections, the emotional intensity, the precision of his breath control — have been studied and absorbed by generations of singers. They have also, through those recordings, been absorbed by AI music generation systems.</p>
+        <h3>What Makes the Style Distinctive</h3>
+        <p>Several elements of Jackson's vocal technique are particularly identifiable. His use of percussive sounds — the "hee," the sharp exhales — as rhythmic elements within phrases. His tendency to sing slightly behind the beat, creating a relaxed but intensely controlled feeling. The way he modulates between chest voice and falsetto with unusual smoothness. The emotional directness of his delivery, which sounds simultaneously vulnerable and powerful.</p>
+        <blockquote>"You have to feel it. I'm not thinking about technique when I sing. I'm thinking about the feeling."</blockquote>
+        <h3>The Estate and AI</h3>
+        <p>The Michael Jackson Estate represents one of the clearest cases in which a specific artist's vocal style has been absorbed into AI training data and reproduced without acknowledgement or compensation. The Estate currently has no mechanism for receiving recognition or compensation when AI systems generate music that carries his influence.</p>
+        <p>Provenance documents these instances. The conversation about what comes next — about recognition, attribution, and the future of AI and artistic legacy — depends on having an accurate record of where the influence is flowing.</p>
+      </div>
+    `
+  },
+  afrobeats: {
+    tag: 'Cultural Piece',
+    title: 'Afrobeats and the rhythm AI borrows without credit',
+    hero: '🌴',
+    body: `
+      <div class="av-hero">🌴</div>
+      <div class="av-headline">Afrobeats and the rhythm AI borrows without credit</div>
+      <div class="av-byline">CULTURAL PIECE · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Afrobeats is one of the most commercially and culturally significant music movements of the 21st century. Originating in West Africa and shaped by artists including Fela Kuti, and in its contemporary form by Wizkid, Burna Boy, Davido, and others, it has become a global sonic force. It has also become one of the most borrowed sounds in AI music generation — often without attribution.</p>
+        <h3>The Rhythmic Architecture</h3>
+        <p>What makes Afrobeats rhythmically distinctive is its relationship to polyrhythm — multiple rhythmic patterns happening simultaneously, creating a groove that feels both complex and irresistibly danceable. The 12/8 feel that characterises much Afrobeats production, the specific placement of percussion, the way rhythm and melody interweave — these are not generic production techniques. They are the result of a specific cultural and musical tradition with deep roots.</p>
+        <blockquote>"The music comes from the people. You cannot separate the sound from where it came from."</blockquote>
+        <h3>The Pattern of Erasure</h3>
+        <p>Throughout the history of popular music, sounds that originated in African and African-diaspora communities have repeatedly been absorbed into mainstream commercial music without credit, compensation, or acknowledgement of their origins. AI music generation represents the latest iteration of this pattern — but at a scale and speed that is unprecedented.</p>
+        <p>When AI systems generate tracks with Afrobeats-influenced rhythms and production, the cultural lineage behind those sounds is invisible. Provenance exists to make it visible — and to ensure that as the conversation about AI and creative attribution develops, these communities and their contributions are part of it.</p>
+      </div>
+    `
+  },
+  amy: {
+    tag: 'Between the Notes',
+    title: 'The imperfection in Amy Winehouse\'s voice',
+    hero: '🎹',
+    body: `
+      <div class="av-hero">🎹</div>
+      <div class="av-headline">The imperfection in Amy Winehouse's voice</div>
+      <div class="av-byline">BETWEEN THE NOTES · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Amy Winehouse's voice was imperfect in the most essential way. It caught. It broke. It rasped in the lower registers and strained beautifully at the top. It carried the specific weight of her experience in every phrase. And it is precisely these imperfections — these qualities that no AI system would generate because it would register them as flaws — that made her voice one of the most emotionally powerful in the history of recorded music.</p>
+        <h3>What Imperfection Communicates</h3>
+        <p>In music, imperfection is often not a failure of technique. It is the technique. The slight flatness that appears in Winehouse's voice when she hits certain emotional peaks is not a mistake. It is the sound of genuine feeling pushing through the limits of controlled performance. Listeners respond to it viscerally because it sounds true.</p>
+        <blockquote>"I don't think about how I sound. I think about what I'm saying."</blockquote>
+        <h3>What AI Optimises Away</h3>
+        <p>AI vocal generation is, at its core, an optimisation process. It learns what technically correct, aesthetically polished vocal performance sounds like from training data, and it reproduces those qualities. What it cannot reproduce — what it optimises away — are the imperfections that carry meaning. The catches. The breaks. The places where the technical control slips and something rawer comes through.</p>
+        <p>This is not simply a quality difference between human and AI music. It is a philosophical difference about what music is for — whether it is meant to be technically perfect or humanly true. Amy Winehouse's voice was humanly true. That is why it still matters.</p>
+      </div>
+    `
+  },
+  timbaland: {
+    tag: 'Production Story',
+    title: 'The Timbaland rhythm that redefined everything',
+    hero: '🥁',
+    body: `
+      <div class="av-hero">🥁</div>
+      <div class="av-headline">The Timbaland rhythm that redefined everything</div>
+      <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>In the late 1990s, a producer from Virginia Beach changed the sound of popular music with a rhythmic approach so distinctive that it spawned an entire era of imitation. Timbaland's production — sparse, syncopated, built around unusual percussion sounds and unexpected rhythmic placements — became the defining aesthetic of late 90s and early 2000s R&B. It also became foundational to how AI systems understand what R&B should sound like.</p>
+        <h3>The Elements of the Sound</h3>
+        <p>What made Timbaland's production so distinctive was his use of space. Where other producers filled their arrangements, he removed. What remained was percussion that sat in unexpected places, bass lines that moved against the grid rather than with it, and a particular attention to the relationship between rhythm and silence that created grooves of unusual hypnotic power.</p>
+        <blockquote>"I hear rhythms everywhere. In conversation, in movement, in the way people walk. Music is just organised versions of the rhythms that are already there."</blockquote>
+        <h3>The Legacy in AI</h3>
+        <p>Albums like Aaliyah's self-titled record, Missy Elliott's Supa Dupa Fly, and Jay-Z's Vol. 2 were not just commercial successes. They were so widely studied, analysed, and imitated that their rhythmic and production approaches became embedded in the DNA of popular music production. AI systems trained on this music absorbed these patterns as core characteristics of the genre.</p>
+        <p>When contemporary AI music generation produces tracks in the R&B or hip-hop space, the ghost of Timbaland's rhythmic innovations is often present — not because it was placed there intentionally, but because it is woven into what those genres sound like, and therefore into what the AI learned.</p>
+      </div>
+    `
+  },
+  hendrix: {
+    tag: 'Production Story',
+    title: 'Jimi Hendrix and the guitar language AI speaks',
+    hero: '🎸',
+    body: `
+      <div class="av-hero">🎸</div>
+      <div class="av-headline">Jimi Hendrix and the guitar language AI speaks</div>
+      <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
+      <div class="av-body">
+        <p>Every time an AI music generation system produces a guitar riff that bends, wails, or sustains in a particular way — every time it reaches for the kind of expressive, bluesy, feedback-inflected sound that we associate with electric guitar at its most emotionally powerful — it is speaking a language that Jimi Hendrix wrote.</p>
+        <h3>The Grammar of Expression</h3>
+        <p>Hendrix did not invent the electric guitar. But he expanded its expressive vocabulary in ways that permanently changed what the instrument could communicate. His use of feedback — controlled, musical, intentional — turned what had previously been an unwanted artefact into an expressive tool. His approach to bending notes, to using the whammy bar as a compositional element, to treating the guitar as a voice rather than an instrument, created a new grammar.</p>
+        <blockquote>"I don't play the guitar. I use the guitar to play myself."</blockquote>
+        <h3>The Inheritance</h3>
+        <p>That grammar was absorbed by every guitarist who came after, and through them, into recorded music at large. From Stevie Ray Vaughan to Prince to John Mayer, the Hendrix influence runs as a continuous thread through electric guitar performance and recording for the past 55 years. AI systems trained on this music absorbed the grammar without knowing its source.</p>
+        <p>The result is that contemporary AI-generated music involving guitar — whether explicitly rock-influenced or drawing on the blues heritage that underpins nearly all popular music — carries Hendrix's influence at a fundamental level. Provenance traces that inheritance and makes it visible.</p>
+      </div>
+    `
+  }
+};
+
+/* ════════════════════════
+   APP STATE & NAVIGATION
+════════════════════════ */
+let currentScreen = 'splash';
+let traceState = 'idle'; // idle | loading | result
+let isPlaying = false;
+let playTimer = null;
+let progressSecs = 0;
+
+function go(screenId) {
+  // Remove .on from all nav items across all navs
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('on'));
+
+  // Activate screen
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById('screen-' + screenId);
+  if (target) target.classList.add('active');
+
+  // Mark correct nav items as active (all navs have same structure)
+  const navMap = { trace:0, discover:1, lineage:2, community:3, profile:4 };
+  const idx = navMap[screenId];
+  if (idx !== undefined) {
+    document.querySelectorAll('.bnav').forEach(nav => {
+      const items = nav.querySelectorAll('.ni');
+      if (items[idx]) items[idx].classList.add('on');
+    });
+  }
+
+  // Scroll to top on navigate
+  document.querySelectorAll('.scroll').forEach(el => el.scrollTop = 0);
+  currentScreen = screenId;
+
+  // Close article if navigating away
+  closeArticle();
+}
+
+/* ════════════════════════
+   TRACE FUNCTIONALITY
+════════════════════════ */
+function setInput(text) {
+  document.getElementById('ts-input').value = text;
+}
+
+function showResult() {
+  document.getElementById('t-idle').style.display = 'none';
+  document.getElementById('t-loading').style.display = 'none';
+  document.getElementById('t-result').style.display = 'block';
+  traceState = 'result';
+}
+
+function resetTrace() {
+  document.getElementById('t-result').style.display = 'none';
+  document.getElementById('t-loading').style.display = 'none';
+  document.getElementById('t-idle').style.display = 'block';
+  document.getElementById('ts-input').value = '';
+  document.getElementById('trace-scroll').scrollTop = 0;
+  traceState = 'idle';
+}
+
+async function startTrace() {
+  const val = document.getElementById('ts-input').value.trim();
+  if (!val) return;
+
+  document.getElementById('t-idle').style.display = 'none';
+  document.getElementById('t-result').style.display = 'none';
+  const ld = document.getElementById('t-loading');
+  ld.style.display = 'flex';
+  document.getElementById('trace-scroll').scrollTop = 0;
+  traceState = 'loading';
+
+  const ids = ['ls1','ls2','ls3','ls4'];
+  const labels = ['Tracing the music…','Identifying vocal patterns…','Mapping creative influences…','Documenting cultural lineage…'];
+  const subs = ['Analysing production signals','Matching against known artists','Building the lineage picture','Almost done'];
+  ids.forEach(id => document.getElementById(id).className = 'lstep');
+  document.getElementById('ls1').className = 'lstep act';
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i < ids.length) {
+      if (i > 0) document.getElementById(ids[i-1]).className = 'lstep done';
+      document.getElementById(ids[i]).className = 'lstep act';
+      document.getElementById('llbl').textContent = labels[i];
+      document.getElementById('llbl-s').textContent = subs[i];
+      i++;
+    } else { clearInterval(iv); }
+  }, 900);
+
+  try {
+    const response = await fetch('https://provenance-production-3c25.up.railway.app/api/trace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: val })
+    });
+
+    clearInterval(iv);
+    const data = await response.json();
+
+    if (!response.ok) {
+      showToast(data.error || 'Could not trace this track');
+      resetTrace();
+      return;
+    }
+
+    renderResult(data);
+
+  } catch (err) {
+    clearInterval(iv);
+    showToast('Could not connect to the server. Try again.');
+    resetTrace();
+  }
+}
+
+function renderResult(data) {
+  document.getElementById('t-loading').style.display = 'none';
+  document.getElementById('t-result').style.display = 'block';
+  document.getElementById('trace-scroll').scrollTop = 0;
+  traceState = 'result';
+
+  document.getElementById('result-song-meta').textContent =
+    `${data.song.title} · ${data.song.artist}${data.song.year ? ' · ' + data.song.year : ''}`;
+
+  const pill = document.querySelector('.verdict-pill');
+  pill.className = `verdict-pill ${data.summary.aiPillClass}`;
+  pill.innerHTML = `<div class="vp-dot"></div>${data.summary.aiVerdict}`;
+
+  document.querySelector('.verdict-sentence').innerHTML = data.summary.verdictSentence;
+
+  const signals = data.productionSignals;
+  const rows = document.querySelectorAll('.signal-row');
+  if (rows[0]) rows[0].querySelector('.signal-val').textContent = signals.pitchCorrection;
+  if (rows[1]) rows[1].querySelector('.signal-val').textContent = signals.breathPresence;
+  if (rows[2]) rows[2].querySelector('.signal-val').textContent = signals.timingRegularity;
+  if (rows[3]) rows[3].querySelector('.signal-val').textContent = signals.spectralSmoothing;
+  document.querySelector('.so-val').textContent = signals.overallAssessment;
+
+  const hc = data.humanContribution;
+  const hcRows = document.querySelectorAll('.hc-row');
+  const hcValues = [hc.songwriting, hc.composition, hc.vocalPerformance, hc.production, hc.mixingMastering];
+  hcRows.forEach((row, i) => {
+    const val = row.querySelector('.hc-val');
+    if (val && hcValues[i]) {
+      val.textContent = hcValues[i];
+      val.className = 'hc-val ' + (
+        hcValues[i].includes('Human') ? 'hcv-human' :
+        hcValues[i].includes('Mixed') ? 'hcv-mixed' : 'hcv-ai'
+      );
+    }
+  });
+
+  if (data.artistRecognition) {
+    document.querySelector('.justice-text').innerHTML = data.artistRecognition.message;
+  }
+}
+/* ════════════════════════
+   COLLAPSIBLE
+════════════════════════ */
+function toggleColl(el) {
+  const icon = el.querySelector('.coll-icon');
+  const body = el.nextElementSibling;
+  const isOpen = body.classList.toggle('open');
+  icon.classList.toggle('open', isOpen);
+}
+
+/* ════════════════════════
+   TAB SWITCHING (generic)
+════════════════════════ */
+function switchTab(clickedTab, showId, ...hideIds) {
+  // Update tab bar styling
+  const bar = clickedTab.closest('.tab-bar');
+  bar.querySelectorAll('.tbar-tab').forEach(t => t.classList.remove('on'));
+  clickedTab.classList.add('on');
+
+  // Show/hide panels
+  const show = document.getElementById(showId);
+  if (show) show.style.display = 'block';
+  hideIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+/* ════════════════════════
+   DISCOVER FILTER
+════════════════════════ */
+function filterDiscover(type, el) {
+  // Update tabs
+  document.querySelectorAll('.ctabs .ctab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+
+  if (type === 'all') {
+    // Show everything
+    document.querySelectorAll('[data-type]').forEach(item => item.style.display = '');
+    return;
+  }
+
+  // Show/hide by data-type
+  document.querySelectorAll('[data-type]').forEach(item => {
+    item.style.display = item.dataset.type === type ? '' : 'none';
+  });
+}
+
+/* ════════════════════════
+   ARTICLE VIEW
+════════════════════════ */
+function openArticle(key) {
+  const article = ARTICLES[key];
+  if (!article) return;
+
+  document.getElementById('av-tag').textContent   = article.tag;
+  document.getElementById('av-title').textContent = article.title;
+  document.getElementById('av-body').innerHTML    = article.body;
+  document.getElementById('av-body').scrollTop    = 0;
+
+  const view = document.getElementById('article-view');
+  view.classList.add('open');
+}
+
+function closeArticle() {
+  document.getElementById('article-view').classList.remove('open');
+}
+
+/* ════════════════════════
+   EPISODE PLAYER
+════════════════════════ */
+function openEpisode(name, role, art) {
+  document.getElementById('ep-name').textContent  = name;
+  document.getElementById('ep-name2').textContent = name;
+  document.getElementById('ep-role').textContent  = role;
+  document.getElementById('ep-role2').textContent = 'Provenance Sessions';
+  document.getElementById('ep-art').textContent   = art;
+
+  isPlaying = false;
+  progressSecs = 0;
+  updatePlayBtn();
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('time-curr').textContent = '0:00';
+
+  document.getElementById('episode-modal').classList.add('open');
+}
+
+function closeEpisode() {
+  document.getElementById('episode-modal').classList.remove('open');
+  pausePlay();
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('episode-modal')) closeEpisode();
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  updatePlayBtn();
+  if (isPlaying) {
+    playTimer = setInterval(() => {
+      progressSecs += 1;
+      if (progressSecs >= 2538) { progressSecs = 2538; pausePlay(); }
+      const pct = (progressSecs / 2538) * 100;
+      document.getElementById('progress-fill').style.width = pct + '%';
+      const m = Math.floor(progressSecs / 60);
+      const s = progressSecs % 60;
+      document.getElementById('time-curr').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  } else {
+    pausePlay();
+  }
+}
+
+function pausePlay() {
+  isPlaying = false;
+  clearInterval(playTimer);
+  updatePlayBtn();
+}
+
+function updatePlayBtn() {
+  document.getElementById('play-icon').setAttribute('d',
+    isPlaying
+      ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'  // pause icon path
+      : 'M5 3 19 12 5 21 5 3'               // play icon path
+  );
+}
+
+/* ════════════════════════
+   TOAST
+════════════════════════ */
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════
+   BACK GESTURE (swipe right from edge)
+════════════════════════ */
+let touchStartX = 0;
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  // Swipe right from left edge to close article
+  if (dx > 60 && touchStartX < 40) {
+    const av = document.getElementById('article-view');
+    if (av.classList.contains('open')) closeArticle();
+  }
+}, { passive: true });
+</script>
+</body>
+</html>
