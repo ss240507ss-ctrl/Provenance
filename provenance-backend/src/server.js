@@ -20,14 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── CORS ────────────────────────────────────
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:5500',  // live server dev
-    'http://127.0.0.1:5500',
-    /\.github\.io$/,          // GitHub Pages
-    /\.netlify\.app$/,        // Netlify
-    /\.vercel\.app$/          // Vercel
-  ],
+  origin: '*',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
