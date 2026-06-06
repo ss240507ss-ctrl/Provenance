@@ -14,12 +14,14 @@ const SOUNDCLOUD_REGEX     = /soundcloud\.com\/([^/]+)\/([^/?]+)/;
 async function resolve(input) {
   // ── Spotify track link ───────────────────────────────
   if (SPOTIFY_URL_REGEX.test(input)) {
-    const match = input.match(SPOTIFY_TRACK_REGEX);
+    // Strip query parameters like ?si= before matching
+    const cleanInput = input.split('?')[0];
+    const match = cleanInput.match(SPOTIFY_TRACK_REGEX);
     if (match) {
       return {
         type: 'spotify',
         spotifyId: match[1],
-        originalUrl: input
+        originalUrl: cleanInput
       };
     }
     const err = new Error('Could not extract Spotify track ID from URL');
