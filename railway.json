@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "cd provenance-backend && npm install && npm start",
+    "startCommand": "node src/server.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }
