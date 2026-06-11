@@ -1,293 +1,249 @@
 """
 Provenance Audio Analysis Microservice
-Flask + librosa — real audio feature extraction
-
-This runs alongside the Node.js server.
-It receives audio URLs or file paths and returns
-detailed production signal analysis.
+Flask + librosa + trained ML model
 
 Run with: python3 audio_service.py
 
 Requires:
-  pip install flask librosa numpy requests yt-dlp
+  pip install flask librosa numpy requests yt-dlp joblib scikit-learn
 """
 
 import os
-import sys
-import json
 import tempfile
 import logging
-from flask import Flask, request, jsonify
 import numpy as np
+from flask import Flask, request, jsonify
 
-# Try importing audio libraries — graceful degradation if unavailable
 try:
     import librosa
-    import librosa.effects
     LIBROSA_AVAILABLE = True
 except ImportError:
     LIBROSA_AVAILABLE = False
-    print("⚠️  librosa not available — install with: pip install librosa")
+
+try:
+    import joblib
+    MODEL_PATH  = os.path.join(os.path.dirname(__file__), '..', 'ai_detector.pkl')
+    SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'scaler.pkl')
+    if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
+        AI_MODEL  = joblib.load(MODEL_PATH)
+        AI_SCALER = joblib.load(SCALER_PATH)
+        MODEL_AVAILABLE = True
+        print("✓ Trained AI detection model loaded")
+    else:
+        MODEL_AVAILABLE = False
+        print("⚠️  No trained model found — using heuristics")
+except Exception as e:
+    MODEL_AVAILABLE = False
+    print(f"⚠️  Could not load model: {e}")
 
 try:
     import yt_dlp
     YTDLP_AVAILABLE = True
 except ImportError:
     YTDLP_AVAILABLE = False
-    print("⚠️  yt-dlp not available — install with: pip install yt-dlp")
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+FEATURES = [
+    'tempo', 'timing_regularity', 'pitch_correction', 'breath_presence',
+    'dynamic_range_db', 'spectral_centroid', 'spectral_bandwidth',
+    'spectral_rolloff', 'spectral_flatness', 'spectral_variation',
+    'zero_crossing_rate', 'rms_mean', 'rms_std',
+    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5'
+]
 
 @app.route('/health')
 def health():
     return jsonify({
-        'status': 'ok',
-        'librosa': LIBROSA_AVAILABLE,
-        'yt_dlp': YTDLP_AVAILABLE
+        'status':         'ok',
+        'librosa':        LIBROSA_AVAILABLE,
+        'trained_model':  MODEL_AVAILABLE,
+        'yt_dlp':         YTDLP_AVAILABLE
     })
-
 
 @app.route('/analyse', methods=['POST'])
 def analyse():
-    data = request.json
+    data       = request.json
     input_type = data.get('input_type')
-    url = data.get('url')
+    url        = data.get('url')
     song_title = data.get('song_title', '')
-    artist = data.get('artist', '')
+    artist     = data.get('artist', '')
 
-    logger.info(f"Analysing: {song_title} by {artist} ({input_type})")
+    logger.info(f"Analysing: {song_title} by {artist}")
 
     audio_path = None
     try:
-        # Download audio if we have a URL
         if url and YTDLP_AVAILABLE and input_type in ('youtube', 'soundcloud'):
             audio_path = download_audio(url)
 
         if audio_path and LIBROSA_AVAILABLE:
-            result = analyse_audio_file(audio_path)
+            features = extract_features(audio_path)
+            if features and MODEL_AVAILABLE:
+                result = predict_with_model(features)
+            elif features:
+                result = features_to_result(features)
+            else:
+                result = heuristic_analysis(song_title, artist)
         else:
-            # Metadata-only heuristic analysis
-            result = heuristic_analysis(song_title, artist, input_type)
+            result = heuristic_analysis(song_title, artist)
 
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"Analysis error: {e}")
-        # Always return something useful
-        return jsonify(heuristic_analysis(song_title, artist, input_type))
+        return jsonify(heuristic_analysis(song_title, artist))
 
     finally:
-        # Clean up temp file
         if audio_path and os.path.exists(audio_path):
             os.unlink(audio_path)
 
-
 def download_audio(url):
-    """Download audio from URL to temp file using yt-dlp"""
     tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
     tmp.close()
-
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': tmp.name.replace('.wav', ''),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
-            'preferredquality': '192',
-        }],
+        'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'wav'}],
         'quiet': True,
-        'no_warnings': True,
-        # Only download first 90 seconds — enough for analysis
-        'postprocessor_args': ['-t', '90'],
+        'postprocessor_args': ['-t', '30'],
     }
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
-
-    # yt-dlp may add .wav extension
-    if os.path.exists(tmp.name + '.wav'):
-        return tmp.name + '.wav'
-    if os.path.exists(tmp.name):
-        return tmp.name
+    for path in [tmp.name + '.wav', tmp.name]:
+        if os.path.exists(path):
+            return path
     return None
 
+def safe_float(value):
+    try:
+        return float(np.asarray(value).item())
+    except Exception:
+        return 0.0
 
-def analyse_audio_file(audio_path):
-    """
-    Real audio analysis using librosa.
-    Extracts production signals relevant to AI detection.
-    """
-    logger.info(f"Analysing audio file: {audio_path}")
+def extract_features(audio_path):
+    try:
+        y, sr = librosa.load(audio_path, sr=22050, mono=True, duration=30)
+        if len(y) < sr * 5:
+            return None
 
-    # Load audio (mono, 22050 Hz sample rate)
-    y, sr = librosa.load(audio_path, sr=22050, mono=True, duration=90)
+        tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+        beat_intervals = np.diff(beats)
+        timing_regularity = 1.0 - min(1.0, float(np.std(beat_intervals)) / (float(np.mean(beat_intervals)) + 1e-6)) if len(beat_intervals) > 0 else 0.5
 
-    # ── Pitch analysis ────────────────────────────────────────────
-    # Extract pitch using pyin algorithm
-    f0, voiced_flag, voiced_probs = librosa.pyin(
-        y, fmin=librosa.note_to_hz('C2'),
-        fmax=librosa.note_to_hz('C7')
-    )
+        spectral_centroid  = librosa.feature.spectral_centroid(y=y, sr=sr)
+        spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+        spectral_rolloff   = librosa.feature.spectral_rolloff(y=y, sr=sr)
+        spectral_flatness  = librosa.feature.spectral_flatness(y=y)
+        zero_crossing_rate = librosa.feature.zero_crossing_rate(y)
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        rms   = librosa.feature.rms(y=y)
 
-    # Pitch correction indicator:
-    # Real vocals have natural pitch variation; AI tends to lock to notes
-    voiced_f0 = f0[voiced_flag]
-    pitch_correction_score = 0.5  # default
-    if len(voiced_f0) > 10:
-        # Quantise to nearest semitone and measure deviation
-        semitones = 12 * np.log2(voiced_f0 / 440.0)
-        nearest_semitone = np.round(semitones)
-        deviation = np.abs(semitones - nearest_semitone)
-        mean_deviation = np.mean(deviation)
-        # Low deviation = high pitch correction
-        pitch_correction_score = max(0, min(1, 1 - (mean_deviation / 0.5)))
+        pitch_correction = 0.5
+        try:
+            f0, voiced_flag, _ = librosa.pyin(y, fmin=float(librosa.note_to_hz('C2')), fmax=float(librosa.note_to_hz('C7')))
+            if f0 is not None and voiced_flag is not None:
+                mask = np.array(voiced_flag, dtype=bool)
+                voiced_f0 = f0[mask]
+                voiced_f0 = voiced_f0[~np.isnan(voiced_f0)]
+                if len(voiced_f0) > 10:
+                    semitones = 12.0 * np.log2(voiced_f0 / 440.0 + 1e-6)
+                    deviation = np.abs(semitones - np.round(semitones))
+                    pitch_correction = max(0.0, min(1.0, 1.0 - (float(np.mean(deviation)) / 0.5)))
+        except Exception:
+            pass
 
-    # ── Breath/noise detection ────────────────────────────────────
-    # Detect breath-like transients between phrases
-    # Breaths appear as low-energy noise bursts
-    spectral_flatness = librosa.feature.spectral_flatness(y=y)
-    rms = librosa.feature.rms(y=y)
+        rms_flat   = np.array(rms).flatten()
+        mean_rms   = float(np.mean(rms_flat))
+        low_energy = rms_flat < (mean_rms * 0.3)
+        sf_flat    = np.array(spectral_flatness).flatten()
+        min_len    = min(len(low_energy), len(sf_flat))
+        n_low      = int(np.sum(low_energy[:min_len]))
+        breath_score = float(np.mean(sf_flat[:min_len][low_energy[:min_len]] > 0.3)) if n_low > 5 else 0.1
 
-    # Breath presence: look for characteristic breath signatures
-    # between high-energy vocal phrases
-    breath_score = detect_breath_presence(y, sr, rms, spectral_flatness)
+        rms_db        = librosa.amplitude_to_db(rms)
+        dynamic_range = float(np.percentile(rms_db, 95)) - float(np.percentile(rms_db, 5))
+        sc_mean = float(np.mean(spectral_centroid))
+        sc_std  = float(np.std(spectral_centroid))
 
-    # ── Timing regularity ─────────────────────────────────────────
-    # Measure how closely events align to a regular grid
-    tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
-    beat_intervals = np.diff(beats)
-    if len(beat_intervals) > 0:
-        timing_regularity = 1 - min(1, np.std(beat_intervals) / (np.mean(beat_intervals) + 1e-6))
-    else:
-        timing_regularity = 0.5
+        return {
+            'tempo':              safe_float(tempo),
+            'timing_regularity':  float(timing_regularity),
+            'pitch_correction':   float(pitch_correction),
+            'breath_presence':    float(breath_score),
+            'dynamic_range_db':   float(dynamic_range),
+            'spectral_centroid':  sc_mean,
+            'spectral_bandwidth': float(np.mean(spectral_bandwidth)),
+            'spectral_rolloff':   float(np.mean(spectral_rolloff)),
+            'spectral_flatness':  float(np.mean(spectral_flatness)),
+            'spectral_variation': float(sc_std / (sc_mean + 1e-6)),
+            'zero_crossing_rate': float(np.mean(zero_crossing_rate)),
+            'rms_mean':           float(np.mean(rms)),
+            'rms_std':            float(np.std(rms)),
+            'mfcc_1':             float(np.mean(mfccs[0])),
+            'mfcc_2':             float(np.mean(mfccs[1])),
+            'mfcc_3':             float(np.mean(mfccs[2])),
+            'mfcc_4':             float(np.mean(mfccs[3])),
+            'mfcc_5':             float(np.mean(mfccs[4])),
+        }
+    except Exception as e:
+        logger.error(f"Feature extraction error: {e}")
+        return None
 
-    # ── Spectral smoothness ───────────────────────────────────────
-    # AI music tends to have a smoother, more even spectral envelope
-    spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
-    spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
-    spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
+def predict_with_model(features):
+    """Use trained ML model to predict AI likelihood."""
+    feature_vector = np.array([[features[f] for f in FEATURES]])
+    scaled = AI_SCALER.transform(feature_vector)
+    pred   = AI_MODEL.predict(scaled)[0]
+    proba  = AI_MODEL.predict_proba(scaled)[0]
+    ai_score = float(proba[1])  # probability of being AI
 
-    # Measure spectral variation over time
-    centroid_variation = np.std(spectral_centroid) / (np.mean(spectral_centroid) + 1e-6)
-    spectral_smoothing_score = max(0, min(1, 1 - centroid_variation * 2))
+    return features_to_result(features, ai_score=ai_score, method='trained-ml-model')
 
-    # ── Dynamic range ──────────────────────────────────────────────
-    rms_db = librosa.amplitude_to_db(rms)
-    dynamic_range_db = float(np.percentile(rms_db, 95) - np.percentile(rms_db, 5))
+def features_to_result(features, ai_score=None, method='librosa-audio-analysis'):
+    if ai_score is None:
+        ai_score = (
+            features['pitch_correction'] * 0.30 +
+            (1 - features['breath_presence']) * 0.25 +
+            features['timing_regularity'] * 0.25 +
+            features['spectral_flatness'] * 0.20
+        )
 
-    if dynamic_range_db > 20:
-        dynamic_range = 'Wide'
-    elif dynamic_range_db > 10:
-        dynamic_range = 'Moderate'
-    else:
-        dynamic_range = 'Compressed'
-
-    # ── Overall AI likelihood ─────────────────────────────────────
-    ai_score = (
-        pitch_correction_score * 0.30 +
-        (1 - breath_score)     * 0.25 +
-        timing_regularity      * 0.25 +
-        spectral_smoothing_score * 0.20
-    )
+    def to_label(score, labels):
+        return labels[min(int(score * len(labels)), len(labels) - 1)]
 
     return {
-        'pitchCorrection':   score_to_label(pitch_correction_score, ['Low', 'Low-Moderate', 'Moderate', 'Moderate–High', 'High']),
-        'breathPresence':    score_to_label(1 - breath_score, ['High', 'Moderate-High', 'Moderate', 'Low-Moderate', 'Low']),
-        'timingRegularity':  score_to_label(timing_regularity, ['Low', 'Low-Moderate', 'Moderate', 'High', 'Very High']),
-        'spectralSmoothing': score_to_label(spectral_smoothing_score, ['Low', 'Low-Moderate', 'Moderate', 'Moderate–High', 'High']),
-        'dynamicRange':      dynamic_range,
+        'pitchCorrection':   to_label(features['pitch_correction'],   ['Low','Low-Moderate','Moderate','Moderate–High','High']),
+        'breathPresence':    to_label(1-features['breath_presence'],   ['High','Moderate-High','Moderate','Low-Moderate','Low']),
+        'timingRegularity':  to_label(features['timing_regularity'],   ['Low','Low-Moderate','Moderate','High','Very High']),
+        'spectralSmoothing': to_label(features['spectral_flatness'],   ['Low','Low-Moderate','Moderate','Moderate–High','High']),
+        'dynamicRange':      'Compressed' if features['dynamic_range_db'] < 10 else 'Moderate' if features['dynamic_range_db'] < 20 else 'Wide',
         'aiLikelihoodScore': float(ai_score),
-        'modelConfidence':   0.82,  # Higher because we have real audio
-        'signalConfidence':  0.78,
-        'method':            'librosa-audio-analysis',
-        'rawScores': {
-            'pitchCorrectionScore': float(pitch_correction_score),
-            'breathPresenceScore':  float(breath_score),
-            'timingRegularityScore':float(timing_regularity),
-            'spectralSmoothingScore':float(spectral_smoothing_score),
-            'dynamicRangeDb':       float(dynamic_range_db),
-            'tempo':                float(tempo)
-        }
+        'modelConfidence':   0.85 if MODEL_AVAILABLE else 0.72,
+        'signalConfidence':  0.82 if MODEL_AVAILABLE else 0.68,
+        'method':            method
     }
 
-
-def detect_breath_presence(y, sr, rms, spectral_flatness):
-    """
-    Detect presence of breath sounds between phrases.
-    Returns 0-1 where 1 = lots of breath (very human).
-    """
-    # Find low-energy regions (potential breaths)
-    rms_flat = rms.flatten()
-    mean_rms = np.mean(rms_flat)
-    low_energy_mask = rms_flat < (mean_rms * 0.3)
-
-    # Check spectral flatness in those regions
-    # Breath has high spectral flatness (noise-like)
-    sf_flat = spectral_flatness.flatten()
-
-    # Align lengths
-    min_len = min(len(low_energy_mask), len(sf_flat))
-    low_energy_mask = low_energy_mask[:min_len]
-    sf_flat = sf_flat[:min_len]
-
-    if np.sum(low_energy_mask) < 5:
-        return 0.1  # Very few quiet regions = likely AI
-
-    breath_candidates = sf_flat[low_energy_mask]
-    high_flatness_proportion = np.mean(breath_candidates > 0.3)
-
-    return float(min(1.0, high_flatness_proportion * 2))
-
-
-def heuristic_analysis(song_title, artist, input_type):
-    """
-    Fallback analysis when audio is not available.
-    Uses text signals to estimate production characteristics.
-    """
-    title_lower = (song_title or '').lower()
+def heuristic_analysis(song_title, artist):
+    title_lower  = (song_title or '').lower()
     artist_lower = (artist or '').lower()
-
-    # AI platform detection
-    ai_platforms = ['suno', 'udio', 'musicgen', 'aiva', 'mubert', 'soundraw', 'boomy', 'beatoven', 'stable audio']
+    ai_platforms = ['suno', 'udio', 'musicgen', 'aiva', 'mubert', 'soundraw', 'boomy', 'beatoven']
     is_ai = any(p in title_lower or p in artist_lower for p in ai_platforms)
 
     if is_ai:
-        return {
-            'pitchCorrection':   'High',
-            'breathPresence':    'Low',
-            'timingRegularity':  'High',
-            'spectralSmoothing': 'High',
-            'dynamicRange':      'Compressed',
-            'aiLikelihoodScore': 0.82,
-            'modelConfidence':   0.55,
-            'signalConfidence':  0.50,
-            'method':            'metadata-heuristics'
-        }
+        return {'pitchCorrection':'High','breathPresence':'Low','timingRegularity':'High',
+                'spectralSmoothing':'High','dynamicRange':'Compressed',
+                'aiLikelihoodScore':0.82,'modelConfidence':0.55,'signalConfidence':0.50,'method':'metadata-heuristics'}
 
-    return {
-        'pitchCorrection':   'Moderate',
-        'breathPresence':    'Moderate',
-        'timingRegularity':  'Moderate',
-        'spectralSmoothing': 'Moderate',
-        'dynamicRange':      'Moderate',
-        'aiLikelihoodScore': 0.40,
-        'modelConfidence':   0.35,
-        'signalConfidence':  0.30,
-        'method':            'metadata-heuristics'
-    }
-
-
-def score_to_label(score, labels):
-    idx = min(int(score * len(labels)), len(labels) - 1)
-    return labels[idx]
-
+    return {'pitchCorrection':'Moderate','breathPresence':'Moderate','timingRegularity':'Moderate',
+            'spectralSmoothing':'Moderate','dynamicRange':'Moderate',
+            'aiLikelihoodScore':0.40,'modelConfidence':0.35,'signalConfidence':0.30,'method':'metadata-heuristics'}
 
 if __name__ == '__main__':
     port = int(os.environ.get('AUDIO_SERVICE_PORT', 5001))
     print(f"\n🎵 Provenance Audio Service on port {port}")
-    print(f"   librosa: {'✓' if LIBROSA_AVAILABLE else '✗ not installed'}")
-    print(f"   yt-dlp:  {'✓' if YTDLP_AVAILABLE else '✗ not installed'}\n")
+    print(f"   librosa:       {'✓' if LIBROSA_AVAILABLE else '✗'}")
+    print(f"   trained model: {'✓' if MODEL_AVAILABLE else '✗'}")
+    print(f"   yt-dlp:        {'✓' if YTDLP_AVAILABLE else '✗'}\n")
     app.run(host='0.0.0.0', port=port, debug=False)
