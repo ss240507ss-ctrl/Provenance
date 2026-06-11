@@ -64,8 +64,12 @@ async function trace(songData, spotifyData, productionSignals) {
 
 function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals) {
   const similar = similarArtists?.similarartists?.artist || [];
-  
-  if (similar.length > 0) {
+
+  // For AI tracks, skip Last.fm similar artists
+  // (they'd return other AI artists) and use human artist database instead
+  const isAiTrack = productionSignals.aiLikelihoodScore > 0.60;
+
+  if (similar.length > 0 && !isAiTrack) {
     const weights = [0.65, 0.20, 0.10];
     return similar.slice(0, 3).map((a, idx) => ({
       name: a.name,

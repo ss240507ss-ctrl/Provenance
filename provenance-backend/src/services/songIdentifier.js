@@ -17,7 +17,10 @@ const spotifyService = require('./spotifyService');
 // Used to detect if a track is AI-generated from its source/artist name
 const AI_PLATFORM_SIGNALS = [
   'suno', 'udio', 'musicgen', 'stable audio', 'aiva', 'mubert',
-  'soundraw', 'boomy', 'loudly', 'beatoven', 'ai music', 'generated'
+  'soundraw', 'boomy', 'loudly', 'beatoven', 'ai music', 'generated',
+  'obscurest vinyl', 'untraceable records', 'banned vinyl',
+  'brainrot', 'ai generated', 'artificial intelligence',
+  'musicgen', 'riffusion', 'harmonai', 'splash music'
 ];
 
 async function identify(resolved) {
