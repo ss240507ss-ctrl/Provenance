@@ -13,12 +13,10 @@ async function analyse(resolved, songData) {
   // Try Python microservice with trained model first
   if (process.env.PYTHON_SERVICE_URL) {
     try {
-      console.log(`Calling Python service at ${process.env.PYTHON_SERVICE_URL}`);
       const result = await callPythonService(resolved, songData);
-      console.log(`Python service result method: ${result?.method}`);
       if (result) return result;
     } catch (err) {
-      console.warn('Python audio service unavailable:', err.message);
+      console.warn('Python audio service unavailable, falling back to heuristics');
     }
   }
   return analyseFromMetadata(songData);
