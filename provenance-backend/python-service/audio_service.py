@@ -22,8 +22,8 @@ except ImportError:
 
 try:
     import joblib
-    MODEL_PATH  = os.path.join(os.path.dirname(__file__), '..', 'ai_detector.pkl')
-    SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'scaler.pkl')
+    MODEL_PATH  = os.path.join(os.path.dirname(__file__), 'ai_detector.pkl')
+SCALER_PATH = os.path.join(os.path.dirname(__file__), 'scaler.pkl')
     if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
         AI_MODEL  = joblib.load(MODEL_PATH)
         AI_SCALER = joblib.load(SCALER_PATH)
