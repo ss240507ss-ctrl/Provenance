@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "python audio_service.py",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
