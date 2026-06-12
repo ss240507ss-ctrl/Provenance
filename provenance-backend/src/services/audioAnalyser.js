@@ -24,10 +24,11 @@ async function analyse(resolved, songData) {
 
 async function callPythonService(resolved, songData) {
   const payload = {
-    input_type: resolved.type,
-    url:        resolved.originalUrl || null,
-    song_title: songData.title,
-    artist:     songData.artist
+    input_type:   resolved.type,
+    url:          resolved.originalUrl || null,
+    song_title:   songData.title,
+    artist:       songData.artist,
+    search_query: `${songData.artist} ${songData.title}`
   };
 
   const response = await axios.post(

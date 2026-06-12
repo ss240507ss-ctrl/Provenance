@@ -74,7 +74,12 @@ def analyse():
     audio_path = None
     try:
         if url and YTDLP_AVAILABLE and input_type in ('youtube', 'soundcloud'):
-            audio_path = download_audio(url)
+    audio_path = download_audio(url)
+
+if not audio_path and YTDLP_AVAILABLE and data.get('search_query'):
+    search_query = data.get('search_query')
+    logger.info(f"Searching YouTube for: {search_query}")
+    audio_path = download_audio(f"ytsearch1:{search_query}")
 
         if audio_path and LIBROSA_AVAILABLE:
             features = extract_features(audio_path)
