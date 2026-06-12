@@ -1,11 +1,6 @@
 """
 Provenance Audio Analysis Microservice
 Flask + librosa + trained ML model
-
-Run with: python3 audio_service.py
-
-Requires:
-  pip install flask librosa numpy requests yt-dlp joblib scikit-learn
 """
 
 import os
@@ -20,21 +15,24 @@ try:
 except ImportError:
     LIBROSA_AVAILABLE = False
 
+MODEL_AVAILABLE = False
+AI_MODEL  = None
+AI_SCALER = None
+
 try:
     import joblib
-    MODEL_PATH  = os.path.join(os.path.dirname(__file__), 'ai_detector.pkl')
-SCALER_PATH = os.path.join(os.path.dirname(__file__), 'scaler.pkl')
+    _dir        = os.path.dirname(__file__)
+    MODEL_PATH  = os.path.join(_dir, 'ai_detector.pkl')
+    SCALER_PATH = os.path.join(_dir, 'scaler.pkl')
     if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
-        AI_MODEL  = joblib.load(MODEL_PATH)
-        AI_SCALER = joblib.load(SCALER_PATH)
+        AI_MODEL        = joblib.load(MODEL_PATH)
+        AI_SCALER       = joblib.load(SCALER_PATH)
         MODEL_AVAILABLE = True
-        print("✓ Trained AI detection model loaded")
+        print("Trained AI detection model loaded")
     else:
-        MODEL_AVAILABLE = False
-        print("⚠️  No trained model found — using heuristics")
+        print("No trained model found — using heuristics")
 except Exception as e:
-    MODEL_AVAILABLE = False
-    print(f"⚠️  Could not load model: {e}")
+    print(f"Could not load model: {e}")
 
 try:
     import yt_dlp
@@ -57,10 +55,10 @@ FEATURES = [
 @app.route('/health')
 def health():
     return jsonify({
-        'status':         'ok',
-        'librosa':        LIBROSA_AVAILABLE,
-        'trained_model':  MODEL_AVAILABLE,
-        'yt_dlp':         YTDLP_AVAILABLE
+        'status':        'ok',
+        'librosa':       LIBROSA_AVAILABLE,
+        'trained_model': MODEL_AVAILABLE,
+        'yt_dlp':        YTDLP_AVAILABLE
     })
 
 @app.route('/analyse', methods=['POST'])
@@ -130,7 +128,10 @@ def extract_features(audio_path):
 
         tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
         beat_intervals = np.diff(beats)
-        timing_regularity = 1.0 - min(1.0, float(np.std(beat_intervals)) / (float(np.mean(beat_intervals)) + 1e-6)) if len(beat_intervals) > 0 else 0.5
+        if len(beat_intervals) > 0:
+            timing_regularity = 1.0 - min(1.0, float(np.std(beat_intervals)) / (float(np.mean(beat_intervals)) + 1e-6))
+        else:
+            timing_regularity = 0.5
 
         spectral_centroid  = librosa.feature.spectral_centroid(y=y, sr=sr)
         spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
@@ -192,13 +193,10 @@ def extract_features(audio_path):
         return None
 
 def predict_with_model(features):
-    """Use trained ML model to predict AI likelihood."""
     feature_vector = np.array([[features[f] for f in FEATURES]])
     scaled = AI_SCALER.transform(feature_vector)
-    pred   = AI_MODEL.predict(scaled)[0]
     proba  = AI_MODEL.predict_proba(scaled)[0]
-    ai_score = float(proba[1])  # probability of being AI
-
+    ai_score = float(proba[1])
     return features_to_result(features, ai_score=ai_score, method='trained-ml-model')
 
 def features_to_result(features, ai_score=None, method='librosa-audio-analysis'):
@@ -214,10 +212,10 @@ def features_to_result(features, ai_score=None, method='librosa-audio-analysis')
         return labels[min(int(score * len(labels)), len(labels) - 1)]
 
     return {
-        'pitchCorrection':   to_label(features['pitch_correction'],   ['Low','Low-Moderate','Moderate','Moderate–High','High']),
-        'breathPresence':    to_label(1-features['breath_presence'],   ['High','Moderate-High','Moderate','Low-Moderate','Low']),
-        'timingRegularity':  to_label(features['timing_regularity'],   ['Low','Low-Moderate','Moderate','High','Very High']),
-        'spectralSmoothing': to_label(features['spectral_flatness'],   ['Low','Low-Moderate','Moderate','Moderate–High','High']),
+        'pitchCorrection':   to_label(features['pitch_correction'],  ['Low','Low-Moderate','Moderate','Moderate-High','High']),
+        'breathPresence':    to_label(1-features['breath_presence'],  ['High','Moderate-High','Moderate','Low-Moderate','Low']),
+        'timingRegularity':  to_label(features['timing_regularity'],  ['Low','Low-Moderate','Moderate','High','Very High']),
+        'spectralSmoothing': to_label(features['spectral_flatness'],  ['Low','Low-Moderate','Moderate','Moderate-High','High']),
         'dynamicRange':      'Compressed' if features['dynamic_range_db'] < 10 else 'Moderate' if features['dynamic_range_db'] < 20 else 'Wide',
         'aiLikelihoodScore': float(ai_score),
         'modelConfidence':   0.85 if MODEL_AVAILABLE else 0.72,
@@ -228,7 +226,8 @@ def features_to_result(features, ai_score=None, method='librosa-audio-analysis')
 def heuristic_analysis(song_title, artist):
     title_lower  = (song_title or '').lower()
     artist_lower = (artist or '').lower()
-    ai_platforms = ['suno', 'udio', 'musicgen', 'aiva', 'mubert', 'soundraw', 'boomy', 'beatoven']
+    ai_platforms = ['suno', 'udio', 'musicgen', 'aiva', 'mubert', 'soundraw', 'boomy', 'beatoven',
+                    'obscurest vinyl', 'untraceable records', 'banned vinyl', 'brainrot']
     is_ai = any(p in title_lower or p in artist_lower for p in ai_platforms)
 
     if is_ai:
@@ -242,8 +241,8 @@ def heuristic_analysis(song_title, artist):
 
 if __name__ == '__main__':
     port = int(os.environ.get('AUDIO_SERVICE_PORT', 5001))
-    print(f"\n🎵 Provenance Audio Service on port {port}")
-    print(f"   librosa:       {'✓' if LIBROSA_AVAILABLE else '✗'}")
-    print(f"   trained model: {'✓' if MODEL_AVAILABLE else '✗'}")
-    print(f"   yt-dlp:        {'✓' if YTDLP_AVAILABLE else '✗'}\n")
+    print(f"\nProvenance Audio Service running on port {port}")
+    print(f"  librosa:       {'yes' if LIBROSA_AVAILABLE else 'no'}")
+    print(f"  trained model: {'yes' if MODEL_AVAILABLE else 'no'}")
+    print(f"  yt-dlp:        {'yes' if YTDLP_AVAILABLE else 'no'}\n")
     app.run(host='0.0.0.0', port=port, debug=False)
