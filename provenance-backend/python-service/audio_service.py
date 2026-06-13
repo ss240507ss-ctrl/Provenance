@@ -63,23 +63,25 @@ def health():
 
 @app.route('/analyse', methods=['POST'])
 def analyse():
-    data       = request.json
-    input_type = data.get('input_type')
-    url        = data.get('url')
-    song_title = data.get('song_title', '')
-    artist     = data.get('artist', '')
+    data         = request.json
+    input_type   = data.get('input_type')
+    url          = data.get('url')
+    song_title   = data.get('song_title', '')
+    artist       = data.get('artist', '')
+    search_query = data.get('search_query', f"{artist} {song_title}".strip())
 
     logger.info(f"Analysing: {song_title} by {artist}")
 
     audio_path = None
     try:
+        # Try direct URL first (YouTube/SoundCloud)
         if url and YTDLP_AVAILABLE and input_type in ('youtube', 'soundcloud'):
-    audio_path = download_audio(url)
+            audio_path = download_audio(url)
 
-if not audio_path and YTDLP_AVAILABLE and data.get('search_query'):
-    search_query = data.get('search_query')
-    logger.info(f"Searching YouTube for: {search_query}")
-    audio_path = download_audio(f"ytsearch1:{search_query}")
+        # Fall back to YouTube search for Spotify links and text searches
+        if not audio_path and YTDLP_AVAILABLE and search_query:
+            logger.info(f"Searching YouTube for: {search_query}")
+            audio_path = download_audio(f"ytsearch1:{search_query}")
 
         if audio_path and LIBROSA_AVAILABLE:
             features = extract_features(audio_path)
@@ -100,23 +102,30 @@ if not audio_path and YTDLP_AVAILABLE and data.get('search_query'):
 
     finally:
         if audio_path and os.path.exists(audio_path):
-            os.unlink(audio_path)
+            try:
+                os.unlink(audio_path)
+            except Exception:
+                pass
 
 def download_audio(url):
-    tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-    tmp.close()
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': tmp.name.replace('.wav', ''),
-        'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'wav'}],
-        'quiet': True,
-        'postprocessor_args': ['-t', '30'],
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-    for path in [tmp.name + '.wav', tmp.name]:
-        if os.path.exists(path):
-            return path
+    try:
+        tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        tmp.close()
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': tmp.name.replace('.wav', ''),
+            'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'wav'}],
+            'quiet': True,
+            'no_warnings': True,
+            'noplaylist': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        for path in [tmp.name + '.wav', tmp.name]:
+            if os.path.exists(path):
+                return path
+    except Exception as e:
+        logger.warning(f"Download failed: {e}")
     return None
 
 def safe_float(value):
