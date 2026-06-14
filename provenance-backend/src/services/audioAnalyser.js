@@ -1,25 +1,34 @@
 /**
  * Audio Analyser Service
- *
- * Priority chain:
- * 1. Trained ML model (ai_detector.pkl) via Python microservice
- * 2. Spotify Audio Features + heuristics fallback
+ * 
+ * Uses Spotify audio features + artist/label signals for AI detection.
+ * Spotify gives us energy, danceability, acousticness, tempo, loudness,
+ * speechiness, instrumentalness, liveness, valence — enough to be decisive.
  */
 
 const axios = require('axios');
-const path  = require('path');
+
+// Known AI music labels and platforms
+const AI_ARTIST_SIGNALS = [
+  'suno', 'udio', 'musicgen', 'aiva', 'mubert', 'soundraw', 'boomy',
+  'beatoven', 'loudly', 'riffusion', 'harmonai', 'splash music',
+  'obscurest vinyl', 'untraceable records', 'banned vinyl', 'brainrot',
+  'ai generated', 'artificial intelligence music', 'musicgen',
+  'stable audio', 'musiclm'
+];
 
 async function analyse(resolved, songData) {
-  // Try Python microservice with trained model first
+  // Try Python microservice first (for YouTube/SoundCloud direct audio)
   if (process.env.PYTHON_SERVICE_URL) {
     try {
       const result = await callPythonService(resolved, songData);
-      if (result) return result;
+      if (result && result.method !== 'metadata-heuristics') return result;
     } catch (err) {
       console.warn('Python audio service unavailable, falling back to heuristics');
     }
   }
-  return analyseFromMetadata(songData);
+
+  return analyseFromSpotifyFeatures(songData);
 }
 
 async function callPythonService(resolved, songData) {
@@ -40,124 +49,168 @@ async function callPythonService(resolved, songData) {
   return response.data;
 }
 
-function analyseFromMetadata(songData) {
+function analyseFromSpotifyFeatures(songData) {
   const af     = songData.audioFeatures;
+  const artist = (songData.artist || '').toLowerCase();
+  const title  = (songData.title  || '').toLowerCase();
   const genres = (songData.genres || []).map(g => g.toLowerCase());
 
-  const acousticness    = af?.acousticness    ?? deriveAcousticness(genres);
-  const energy          = af?.energy          ?? 0.7;
-  const instrumentalness= af?.instrumentalness ?? 0.1;
-  const speechiness     = af?.speechiness     ?? 0.05;
+  // ── Step 1: Check explicit AI signals ──────────────────────────────
+  const isExplicitlyAi = songData.isAiGenerated ||
+    AI_ARTIST_SIGNALS.some(sig => artist.includes(sig) || title.includes(sig));
 
-  const pitchCorrectionScore = derivePitchCorrection(acousticness, genres, songData.isAiGenerated);
-  const breathScore          = deriveBreathPresence(acousticness, speechiness, songData.isAiGenerated);
-  const timingScore          = deriveTimingRegularity(af, genres, songData.isAiGenerated);
-  const spectralScore        = deriveSpectralSmoothing(acousticness, genres, songData.isAiGenerated);
+  if (isExplicitlyAi) {
+    return buildResult({
+      aiScore: 0.88,
+      pitchCorrection:  'High',
+      breathPresence:   'Low',
+      timingRegularity: 'Very High',
+      spectralSmoothing:'High',
+      dynamicRange:     'Compressed',
+      confidence:       0.90,
+      method:           'explicit-ai-signal'
+    });
+  }
 
-  const pitchCorrection  = scoreToLabel(pitchCorrectionScore, ['Low','Low-Moderate','Moderate','Moderate–High','High']);
-  const breathPresence   = scoreToLabel(breathScore,          ['High','Moderate-High','Moderate','Low-Moderate','Low']);
-  const timingRegularity = scoreToLabel(timingScore,          ['Low','Low-Moderate','Moderate','High','Very High']);
-  const spectralSmoothing= scoreToLabel(spectralScore,        ['Low','Low-Moderate','Moderate','Moderate–High','High']);
-  const dynamicRange     = deriveDynamicRange(af, genres, songData.isAiGenerated);
+  // ── Step 2: Use Spotify audio features if available ─────────────────
+  if (af) {
+    return analyseWithFeatures(af, genres, songData);
+  }
 
-  const aiLikelihoodScore = calculateAiScore({
-    isExplicitlyAi: songData.isAiGenerated,
-    pitchCorrectionScore,
-    breathScore,
-    timingScore,
-    spectralScore,
-    acousticness,
-    genres
+  // ── Step 3: Genre-based heuristics (no audio features) ──────────────
+  return analyseFromGenre(genres, songData);
+}
+
+function analyseWithFeatures(af, genres, songData) {
+  // AI music tends to have:
+  // - Very high energy (0.7+) with very low acousticness (0.1-)
+  // - Near-zero liveness (no audience/room noise)
+  // - Extreme valence (too happy or too sad)
+  // - Very consistent tempo
+  // - Low speechiness (no natural speech patterns)
+  // - High instrumentalness or very low (binary)
+
+  let aiScore = 0.0;
+  const signals = [];
+
+  // Liveness is the strongest signal — AI has no room presence
+  if (af.liveness < 0.08) {
+    aiScore += 0.20;
+    signals.push('no room presence detected');
+  } else if (af.liveness < 0.15) {
+    aiScore += 0.10;
+  } else {
+    aiScore -= 0.10; // Strong human signal — live room presence
+  }
+
+  // Acousticness — AI rarely produces truly acoustic music
+  if (af.acousticness < 0.05) {
+    aiScore += 0.12;
+    signals.push('no acoustic elements');
+  } else if (af.acousticness > 0.50) {
+    aiScore -= 0.15; // Acoustic music is almost never AI
+  }
+
+  // Energy + acousticness combination
+  if (af.energy > 0.75 && af.acousticness < 0.10) {
+    aiScore += 0.10;
+    signals.push('high energy with no acoustic character');
+  }
+
+  // Speechiness — natural speech patterns indicate human
+  if (af.speechiness > 0.15) {
+    aiScore -= 0.12; // Natural speech is hard to fake
+  } else if (af.speechiness < 0.03) {
+    aiScore += 0.05;
+  }
+
+  // Loudness — AI music tends to be heavily compressed
+  if (af.loudness > -3) {
+    aiScore += 0.08;
+    signals.push('heavily compressed');
+  } else if (af.loudness < -12) {
+    aiScore -= 0.05; // Dynamic range suggests human production
+  }
+
+  // Genre corrections — some genres naturally look like AI to these metrics
+  if (isGenre(genres, ['amapiano', 'afrohouse', 'electronic', 'edm', 'techno', 'house'])) {
+    aiScore -= 0.18; // These genres are naturally electronic — not a sign of AI
+  }
+  if (isGenre(genres, ['acoustic', 'folk', 'classical', 'blues', 'jazz', 'country'])) {
+    aiScore -= 0.20; // Organic genres are almost never AI
+  }
+  if (isGenre(genres, ['afrobeats', 'afropop', 'dancehall', 'reggae', 'latin', 'soca'])) {
+    aiScore -= 0.15; // Cultural genres with strong human traditions
+  }
+  if (isGenre(genres, ['r&b', 'soul', 'gospel', 'neo soul', 'trap soul'])) {
+    aiScore -= 0.10;
+  }
+
+  // Clamp to 0-1
+  aiScore = Math.max(0, Math.min(1, aiScore));
+
+  // Derive production signal labels from audio features
+  const pitchCorrection  = af.energy > 0.7 && af.acousticness < 0.2 ? 'High' : af.acousticness > 0.5 ? 'Low' : 'Moderate';
+  const breathPresence   = af.liveness > 0.2 ? 'High' : af.liveness > 0.1 ? 'Moderate' : 'Low';
+  const timingRegularity = af.danceability > 0.8 ? 'Very High' : af.danceability > 0.6 ? 'High' : 'Moderate';
+  const spectralSmoothing= af.acousticness < 0.1 ? 'High' : af.acousticness > 0.4 ? 'Low' : 'Moderate';
+  const dynamicRange     = af.loudness > -5 ? 'Compressed' : af.loudness > -10 ? 'Moderate' : 'Wide';
+
+  return buildResult({
+    aiScore,
+    pitchCorrection,
+    breathPresence,
+    timingRegularity,
+    spectralSmoothing,
+    dynamicRange,
+    confidence: 0.72,
+    method: 'spotify-audio-features'
   });
+}
 
+function analyseFromGenre(genres, songData) {
+  // No audio features — use genre alone
+  let aiScore = 0.40; // Start neutral
+
+  if (isGenre(genres, ['amapiano', 'afrobeats', 'afropop', 'afrohouse', 'kwaito',
+                        'dancehall', 'reggae', 'latin', 'soca', 'highlife',
+                        'r&b', 'soul', 'gospel', 'jazz', 'blues', 'folk',
+                        'acoustic', 'classical', 'neo soul', 'trap soul'])) {
+    aiScore = 0.25; // Cultural/organic genres — unlikely to be AI
+  }
+
+  if (isGenre(genres, ['edm', 'electronic', 'synth', 'ambient'])) {
+    aiScore = 0.40; // Could go either way
+  }
+
+  return buildResult({
+    aiScore,
+    pitchCorrection:  'Moderate',
+    breathPresence:   'Moderate',
+    timingRegularity: 'Moderate',
+    spectralSmoothing:'Moderate',
+    dynamicRange:     'Moderate',
+    confidence:       0.35,
+    method:           'genre-heuristics'
+  });
+}
+
+function buildResult({ aiScore, pitchCorrection, breathPresence, timingRegularity, spectralSmoothing, dynamicRange, confidence, method }) {
   return {
     pitchCorrection,
     breathPresence,
     timingRegularity,
     spectralSmoothing,
     dynamicRange,
-    aiLikelihoodScore,
-    modelConfidence:  af ? 0.72 : 0.45,
-    signalConfidence: af ? 0.68 : 0.40,
-    method: af ? 'spotify-audio-features + heuristics' : 'metadata-heuristics',
-    audioFeatures: af ? {
-      tempo:            af.tempo,
-      energy:           af.energy,
-      danceability:     af.danceability,
-      acousticness:     af.acousticness,
-      instrumentalness: af.instrumentalness,
-      valence:          af.valence,
-      loudness:         af.loudness
-    } : null
+    aiLikelihoodScore: aiScore,
+    modelConfidence:   confidence,
+    signalConfidence:  confidence * 0.95,
+    method
   };
 }
 
-function derivePitchCorrection(acousticness, genres, isAi) {
-  let score = 0.5;
-  score -= acousticness * 0.3;
-  if (isGenre(genres, ['pop','edm','electronic','dance'])) score += 0.2;
-  if (isGenre(genres, ['acoustic','folk','classical']))    score -= 0.2;
-  if (isAi) score += 0.25;
-  return clamp(score);
+function isGenre(genres, targets) {
+  return targets.some(t => genres.some(g => g.includes(t)));
 }
-
-function deriveBreathPresence(acousticness, speechiness, isAi) {
-  let score = 0.5;
-  score -= acousticness * 0.3;
-  score -= speechiness  * 0.2;
-  if (isAi) score += 0.3;
-  return clamp(score);
-}
-
-function deriveTimingRegularity(af, genres, isAi) {
-  let score = 0.5;
-  if (af?.danceability > 0.7) score += 0.15;
-  if (isGenre(genres, ['electronic','edm','dance'])) score += 0.15;
-  if (isGenre(genres, ['jazz','blues','folk']))       score -= 0.2;
-  if (isAi) score += 0.25;
-  return clamp(score);
-}
-
-function deriveSpectralSmoothing(acousticness, genres, isAi) {
-  let score = 0.5;
-  score -= acousticness * 0.25;
-  if (isGenre(genres, ['electronic','synth','ambient'])) score += 0.15;
-  if (isGenre(genres, ['rock','metal','punk']))           score -= 0.1;
-  if (isAi) score += 0.2;
-  return clamp(score);
-}
-
-function deriveDynamicRange(af, genres, isAi) {
-  if (!af) return isAi ? 'Compressed' : 'Moderate';
-  if (af.loudness > -5)  return 'Compressed';
-  if (af.loudness > -10) return 'Moderate';
-  return 'Wide';
-}
-
-function deriveAcousticness(genres) {
-  if (isGenre(genres, ['acoustic','folk','classical','singer-songwriter'])) return 0.7;
-  if (isGenre(genres, ['pop','r&b','soul']))                                return 0.3;
-  if (isGenre(genres, ['electronic','edm','synth']))                        return 0.1;
-  return 0.3;
-}
-
-function calculateAiScore({ isExplicitlyAi, pitchCorrectionScore, breathScore, timingScore, spectralScore, acousticness }) {
-  if (isExplicitlyAi) {
-    const base   = 0.80;
-    const signal = (pitchCorrectionScore + breathScore + timingScore + spectralScore) / 4;
-    return clamp(base * 0.6 + signal * 0.4);
-  }
-  const signalScore    = pitchCorrectionScore * 0.30 + breathScore * 0.25 + timingScore * 0.25 + spectralScore * 0.20;
-  const acousticPenalty = acousticness * 0.2;
-  return clamp(signalScore - acousticPenalty);
-}
-
-function scoreToLabel(score, labels) {
-  const idx = Math.min(Math.floor(score * labels.length), labels.length - 1);
-  return labels[idx];
-}
-
-function clamp(val)                  { return Math.max(0, Math.min(1, val)); }
-function isGenre(genres, targets)    { return targets.some(t => genres.some(g => g.includes(t))); }
 
 module.exports = { analyse };
