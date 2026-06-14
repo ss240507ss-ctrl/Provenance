@@ -67,7 +67,7 @@ function buildInfluences(similarArtists, currentArtist, genreFamily, productionS
 
   // For AI tracks, skip Last.fm similar artists
   // (they'd return other AI artists) and use human artist database instead
-  const isAiTrack = productionSignals.aiLikelihoodScore > 0.60;
+  const isAiTrack = productionSignals.aiLikelihoodScore > 0.70;
 
   if (similar.length > 0 && !isAiTrack) {
     const weights = [0.65, 0.20, 0.10];
