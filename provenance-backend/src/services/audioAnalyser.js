@@ -241,17 +241,29 @@ async function analyse(resolved, songData) {
   // Step 1: Fast checks first — blocklist, explicit signals, verification waterfall
   const fastResult = await analyseFromSpotifyFeatures(songData);
 
-  // If the fast path is already confident (clearly AI or clearly human), use it
-  const isConfident = fastResult.aiLikelihoodScore >= 0.75 || fastResult.aiLikelihoodScore <= 0.20;
+  // Skip the full Claude/Google AI-or-not question only when the GitHub
+  // blocklist already gave a direct, explicit match — but still try to find
+  // out WHO specifically this AI artist clones, for accurate influences.
+  const isBlocklistConfirmed = fastResult.method?.includes('github-blocklist') ||
+                               fastResult.method === 'explicit-ai-signal';
 
-  if (isConfident) {
+  if (isBlocklistConfirmed) {
+    try {
+      const claudeCheck = await checkClaudeVerification(songData.artist, songData.title);
+      if (claudeCheck?.sourceFound && claudeCheck.isVoiceClone && claudeCheck.clonedArtistName) {
+        return { ...fastResult, confirmedClonedArtist: claudeCheck.clonedArtistName, verificationSummary: claudeCheck.summary };
+      }
+    } catch (err) {
+      console.warn('Claude clone-identification lookup failed:', err.message);
+    }
     return fastResult;
   }
 
-  // Step 2: Uncertain case — ask Claude (with web search) + Google Search
-  // whether this is a known AI artist or a confirmed voice clone of a real artist.
-  // This is faster and often more accurate than the audio waterfall for
-  // catching cases that are already publicly documented (e.g. L$30 cloning MJ).
+  // Step 2: Ask Claude (with web search) + Google Search whether this is a
+  // known AI artist or a confirmed voice clone of a real artist — even when
+  // the artist passed human verification (MusicBrainz/Last.fm/Discogs can
+  // confirm a real registered artist while that artist's specific track
+  // still uses an AI-cloned voice, e.g. L$30 cloning Michael Jackson).
   try {
     const [claudeCheck, googleCheck] = await Promise.all([
       checkClaudeVerification(songData.artist, songData.title),
@@ -282,6 +294,10 @@ async function analyse(resolved, songData) {
           verificationSummary: claudeCheck.summary
         });
       }
+      // Claude found sources and is confident this is NOT AI — trust the human verdict
+      if (!claudeCheck.isAiArtist && !claudeCheck.isVoiceClone) {
+        return fastResult;
+      }
     }
 
     if (googleCheck?.found && googleCheck.aiKeywordHit) {
@@ -293,7 +309,13 @@ async function analyse(resolved, songData) {
     console.warn('Claude/Google verification step failed:', err.message);
   }
 
-  // Step 3: Still uncertain — try slow audio analysis to catch voice cloning etc.
+  // Step 3: Fast path was already confident either way and Claude/Google found nothing — use it
+  const isConfident = fastResult.aiLikelihoodScore >= 0.75 || fastResult.aiLikelihoodScore <= 0.20;
+  if (isConfident) {
+    return fastResult;
+  }
+
+  // Step 4: Still genuinely uncertain — try slow audio analysis to catch voice cloning etc.
   if (process.env.PYTHON_SERVICE_URL) {
     try {
       const audioResult = await callPythonService(resolved, songData);
