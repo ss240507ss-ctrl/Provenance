@@ -499,6 +499,9 @@ Respond with ONLY a JSON object, no other text, in this exact shape:
 
   } catch (err) {
     console.warn('Claude verification failed:', err.message);
+    if (err.response?.data) {
+      console.warn('Claude API error details:', JSON.stringify(err.response.data));
+    }
     return null;
   }
 }
@@ -523,6 +526,9 @@ async function checkGoogleSearch(artistName) {
     return { found: false };
   } catch (err) {
     console.warn('Google Search check failed:', err.message);
+    if (err.response?.data) {
+      console.warn('Google API error details:', JSON.stringify(err.response.data));
+    }
     return null;
   }
 }
