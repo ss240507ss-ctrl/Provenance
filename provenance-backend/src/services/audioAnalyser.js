@@ -501,6 +501,10 @@ Respond with ONLY a JSON object, no other text, in this exact shape:
     console.warn('Claude verification failed:', err.message);
     if (err.response?.data) {
       console.warn('Claude API error details:', JSON.stringify(err.response.data));
+    } else if (err.response) {
+      console.warn('Claude API error status:', err.response.status, 'headers:', JSON.stringify(err.response.headers));
+    } else {
+      console.warn('Claude API error (no response object):', err.toString());
     }
     return null;
   }
