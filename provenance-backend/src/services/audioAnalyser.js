@@ -505,7 +505,7 @@ async function checkGoogleSearch(artistName) {
   }
 }
 
-
+function analyseFromGenre(genres, baseScore = 0.35) {
   let aiScore = baseScore;
   if (isGenre(genres, ['amapiano', 'afrobeats', 'afropop', 'afrohouse', 'kwaito',
                         'dancehall', 'reggae', 'latin', 'soca', 'highlife',
