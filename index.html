@@ -1,4 +1,11 @@
 <!DOCTYPE html>
+<!-- 
+  Provenance — Music Transparency & AI Detection Platform
+  Concept, design and development: Julie Susan Wawira Njiruh
+  First published: 5 June 2026
+  ID: PRV-2026-JN-001
+  https://provenance-trace.netlify.app
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,6 +13,18 @@
 <title>Provenance</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+.watermark {
+  position: fixed;
+  bottom: 8px;
+  right: 10px;
+  font-size: 8px;
+  color: rgba(255,255,255,0.08);
+  font-family: var(--fm);
+  letter-spacing: 2px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 9999;
+}
 /* ═══════════════════════════════════
    TOKENS
 ═══════════════════════════════════ */
@@ -764,6 +783,8 @@ button { font-family:var(--fu); cursor:pointer; }
 </style>
 </head>
 <body>
+<span id="provenance-watermark" style="display:none;position:absolute;opacity:0;pointer-events:none;" aria-hidden="true" data-creator="Julie Susan Wawira Njiruh" data-created="2026-06-05" data-id="PRV-2026-JN-001">Provenance by Julie Susan Wawira Njiruh, 5 June 2026</span>
+<div class="watermark">JSWN</div>
 <div class="app">
 
 <!-- ════════════════════════

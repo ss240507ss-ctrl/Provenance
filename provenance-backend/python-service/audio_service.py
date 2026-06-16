@@ -1,12 +1,19 @@
 """
 Provenance Audio Analysis Microservice
 Flask + librosa + trained ML model
+
+Audio source waterfall:
+1. Internet Archive (free, no key, no bot detection)
+2. SoundCloud search (free via yt-dlp)
+3. YouTube search (free via yt-dlp, sometimes blocked)
+4. Fallback to metadata heuristics
 """
 
 import os
 import tempfile
 import logging
 import numpy as np
+import requests
 from flask import Flask, request, jsonify
 
 try:
@@ -72,23 +79,43 @@ def analyse():
 
     logger.info(f"Analysing: {song_title} by {artist}")
 
-    audio_path = None
+    audio_path  = None
+    source_used = None
+
     try:
-        # Try direct URL first (YouTube/SoundCloud)
+        # ── ROUND 1: Direct URL (if YouTube/SoundCloud link given) ──────
         if url and YTDLP_AVAILABLE and input_type in ('youtube', 'soundcloud'):
             audio_path = download_audio(url)
+            if audio_path:
+                source_used = 'direct-url'
 
-        # Fall back to YouTube search for Spotify links and text searches
+        # ── ROUND 2: Internet Archive (free, no bot detection) ──────────
+        if not audio_path and search_query:
+            audio_path = download_from_archive_org(search_query)
+            if audio_path:
+                source_used = 'internet-archive'
+
+        # ── ROUND 3: SoundCloud search ───────────────────────────────────
         if not audio_path and YTDLP_AVAILABLE and search_query:
-            logger.info(f"Searching YouTube for: {search_query}")
-            audio_path = download_audio(f"ytsearch1:{search_query}")
+            audio_path = download_audio(f"scsearch1:{search_query}")
+            if audio_path:
+                source_used = 'soundcloud-search'
 
+        # ── ROUND 4: YouTube search (often blocked but worth trying) ────
+        if not audio_path and YTDLP_AVAILABLE and search_query:
+            audio_path = download_audio(f"ytsearch1:{search_query}")
+            if audio_path:
+                source_used = 'youtube-search'
+
+        # ── Analyse if we got audio ───────────────────────────────────────
         if audio_path and LIBROSA_AVAILABLE:
             features = extract_features(audio_path)
             if features and MODEL_AVAILABLE:
                 result = predict_with_model(features)
+                result['audioSource'] = source_used
             elif features:
                 result = features_to_result(features)
+                result['audioSource'] = source_used
             else:
                 result = heuristic_analysis(song_title, artist)
         else:
@@ -107,6 +134,66 @@ def analyse():
             except Exception:
                 pass
 
+# ── Internet Archive search and download ───────────────────────────────────
+
+def download_from_archive_org(search_query):
+    """Search Internet Archive for a track and download audio if found."""
+    try:
+        search_url = "https://archive.org/advancedsearch.php"
+        params = {
+            'q': f'({search_query}) AND mediatype:(audio)',
+            'fl[]': 'identifier',
+            'rows': 3,
+            'output': 'json'
+        }
+        resp = requests.get(search_url, params=params, timeout=8)
+        if resp.status_code != 200:
+            return None
+
+        docs = resp.json().get('response', {}).get('docs', [])
+        if not docs:
+            return None
+
+        for doc in docs:
+            identifier = doc.get('identifier')
+            if not identifier:
+                continue
+
+            # Get file listing for this item
+            meta_url = f"https://archive.org/metadata/{identifier}"
+            meta_resp = requests.get(meta_url, timeout=8)
+            if meta_resp.status_code != 200:
+                continue
+
+            files = meta_resp.json().get('files', [])
+            audio_file = next(
+                (f for f in files if f.get('name', '').lower().endswith(('.mp3', '.ogg', '.flac'))),
+                None
+            )
+            if not audio_file:
+                continue
+
+            file_url = f"https://archive.org/download/{identifier}/{audio_file['name']}"
+            audio_resp = requests.get(file_url, timeout=15, stream=True)
+            if audio_resp.status_code == 200:
+                tmp = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                downloaded = 0
+                max_bytes  = 5 * 1024 * 1024  # Cap at 5MB (~30-60s of audio)
+                for chunk in audio_resp.iter_content(chunk_size=8192):
+                    tmp.write(chunk)
+                    downloaded += len(chunk)
+                    if downloaded > max_bytes:
+                        break
+                tmp.close()
+                logger.info(f"Downloaded from Internet Archive: {identifier}")
+                return tmp.name
+
+    except Exception as e:
+        logger.warning(f"Internet Archive search failed: {e}")
+    return None
+
+# ── yt-dlp download (YouTube/SoundCloud) ────────────────────────────────────
+
 def download_audio(url):
     try:
         tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
@@ -118,6 +205,7 @@ def download_audio(url):
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
+            'socket_timeout': 10,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
@@ -125,7 +213,7 @@ def download_audio(url):
             if os.path.exists(path):
                 return path
     except Exception as e:
-        logger.warning(f"Download failed: {e}")
+        logger.warning(f"yt-dlp download failed: {e}")
     return None
 
 def safe_float(value):
@@ -258,5 +346,6 @@ if __name__ == '__main__':
     print(f"\nProvenance Audio Service running on port {port}")
     print(f"  librosa:       {'yes' if LIBROSA_AVAILABLE else 'no'}")
     print(f"  trained model: {'yes' if MODEL_AVAILABLE else 'no'}")
-    print(f"  yt-dlp:        {'yes' if YTDLP_AVAILABLE else 'no'}\n")
+    print(f"  yt-dlp:        {'yes' if YTDLP_AVAILABLE else 'no'}")
+    print(f"  Audio waterfall: Internet Archive -> SoundCloud -> YouTube\n")
     app.run(host='0.0.0.0', port=port, debug=False)
