@@ -1164,41 +1164,11 @@ button { font-family:var(--fu); cursor:pointer; }
   <div class="scroll" style="padding-bottom:8px">
     <div class="sec" style="margin-top:4px">Recently traced</div>
 
-    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
-      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
-        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#2a0a4e,#6a1a9c)">🎤</div>
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Midnight Feeling</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Suno v4 · 2.1M streams</div></div>
-      </div>
-      <div class="lcard-body">
-        <div class="lcard-ll">Creative Lineage</div>
-        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Vocal influence — <strong>Michael Jackson</strong></div></div>
-        <div class="li"><div class="li-dot" style="background:var(--amber)"></div><div class="li-text">Production inspired by — <strong>Quincy Jones</strong></div></div>
-        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>1980s Pop, Funk, and Gospel traditions</strong></div></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
-      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
-        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#1a0a3e,#5a1a9c)">🎵</div>
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Purple Summer</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Udio · 890K streams</div></div>
-      </div>
-      <div class="lcard-body">
-        <div class="lcard-ll">Creative Lineage</div>
-        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Vocal and production influence — <strong>Prince</strong></div></div>
-        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>Minneapolis Sound, Funk, R&B</strong></div></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin:0 16px 14px" onclick="go('trace');showResult()">
-      <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
-        <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#2a0a3e,#5a1a7c)">🎸</div>
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">Golden Hour Drive</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">Udio · 340K streams</div></div>
-      </div>
-      <div class="lcard-body">
-        <div class="lcard-ll">Creative Lineage</div>
-        <div class="li"><div class="li-dot" style="background:var(--violet)"></div><div class="li-text">Guitar influence — <strong>Jimi Hendrix</strong></div></div>
-        <div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>Classic Blues and Psychedelic Rock</strong></div></div>
-      </div>
+    <div id="lineage-recent"></div>
+    <div id="lineage-empty" class="empty-state" style="display:none">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-title">No traces yet</div>
+      <div class="empty-body">Trace a song to see its creative lineage appear here.</div>
     </div>
 
     <div class="rule"></div>
@@ -1233,51 +1203,18 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
   <div class="scroll" style="padding-bottom:8px">
     <div id="comm-music">
-      <div class="cpost">
-        <div class="cp-meta">
-          <div class="cp-av">🎵</div>
-          <div><div class="cp-user">maya_listens</div><div class="cp-time">2h ago</div></div>
-          <div class="cp-tag-wrap"><span class="tag" style="background:var(--v3);color:var(--violet)">Creation Note</span></div>
-        </div>
-        <div class="cp-title">The breath is the tell</div>
-        <div class="cp-body">In Midnight Feeling, the absence of natural breath between phrases is the clearest signal. Human singers breathe. AI-assisted vocals often don't — or breathe in places that don't align with natural phrasing.</div>
-        <div class="cp-footer">
-          <div class="cp-action" onclick="showToast('14 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 14 replies</div>
-          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 38</div>
-        </div>
-      </div>
-      <div class="cpost">
-        <div class="cp-meta">
-          <div class="cp-av">🎼</div>
-          <div><div class="cp-user">prodhistory</div><div class="cp-time">5h ago</div></div>
-          <div class="cp-tag-wrap"><span class="tag" style="background:var(--green-s);color:var(--green)">Production Story</span></div>
-        </div>
-        <div class="cp-title">Quincy's fingerprint is everywhere and we don't talk about it enough</div>
-        <div class="cp-body">Three AI tracks this week alone show strong Quincy Jones production lineage signals. The way he used string arrangements as emotional counterpoint is something AI has clearly absorbed deeply from his catalogue.</div>
-        <div class="cp-footer">
-          <div class="cp-action" onclick="showToast('6 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 6 replies</div>
-          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 62</div>
-        </div>
-      </div>
-      <div class="cpost">
-        <div class="cp-meta">
-          <div class="cp-av">🌍</div>
-          <div><div class="cp-user">culturalrecord</div><div class="cp-time">1d ago</div></div>
-          <div class="cp-tag-wrap"><span class="tag" style="background:var(--mag-s);color:var(--mag)">Cultural Piece</span></div>
-        </div>
-        <div class="cp-title">Afrobeats is the most borrowed sound in AI music and nobody is saying it</div>
-        <div class="cp-body">Run any trending AI track through a rhythm analysis and you'll find Afrobeats patterns. The 12/8 feel, the percussion placement, the call-and-response vocal layering. The lineage is being used and the origins are being erased.</div>
-        <div class="cp-footer">
-          <div class="cp-action" onclick="showToast('29 replies')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 29 replies</div>
-          <div class="cp-action" onclick="showToast('Liked')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 114</div>
-        </div>
+      <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        <div class="empty-title">Community discussion is coming soon</div>
+        <div class="empty-body">Annotations, production notes, and cultural discussion from other listeners will appear here. No account needed to read — just keep tracing.</div>
       </div>
     </div>
     <div id="comm-you" style="display:none">
-      <div class="empty-state">
+      <div id="your-activity-list"></div>
+      <div id="your-activity-empty" class="empty-state">
         <div class="empty-icon">📝</div>
         <div class="empty-title">Your recorded perspective on music</div>
-        <div class="empty-body">Your analyses, notes, and comments will appear here once you start contributing.</div>
+        <div class="empty-body">Trace some songs and your activity will appear here on this device.</div>
       </div>
     </div>
   </div>
@@ -1296,39 +1233,28 @@ button { font-family:var(--fu); cursor:pointer; }
 <div class="screen" id="screen-profile">
   <div class="phero"><div class="pav-wrap"><div class="pav">🎧</div></div></div>
   <div class="pinfo-row">
-    <div><div class="pname">Jules</div><div class="phandle">@jules · Member since 2025</div></div>
-    <div class="pedit-btn" onclick="showToast('Edit profile coming soon')">Edit</div>
+    <div><div class="pname">You</div><div class="phandle">Saved on this device · No account needed</div></div>
   </div>
   <div class="pstats">
-    <div class="pstat"><div class="ps-n">48</div><div class="ps-l">Traced</div></div>
-    <div class="pstat"><div class="ps-n">12</div><div class="ps-l">Posts</div></div>
-    <div class="pstat"><div class="ps-n">34</div><div class="ps-l">Comments</div></div>
-    <div class="pstat"><div class="ps-n">7</div><div class="ps-l">Saved</div></div>
+    <div class="pstat"><div class="ps-n" id="prof-traced">0</div><div class="ps-l">Traced</div></div>
+    <div class="pstat"><div class="ps-n" id="prof-ai">0</div><div class="ps-l">AI flagged</div></div>
+    <div class="pstat"><div class="ps-n" id="prof-human">0</div><div class="ps-l">Human verified</div></div>
   </div>
   <div class="tab-bar">
-    <div class="tbar-tab on" onclick="switchTab(this,'pp-posts','pp-comments','pp-about')">Posts</div>
-    <div class="tbar-tab"    onclick="switchTab(this,'pp-comments','pp-posts','pp-about')">Comments</div>
-    <div class="tbar-tab"    onclick="switchTab(this,'pp-about','pp-posts','pp-comments')">About</div>
+    <div class="tbar-tab on" onclick="switchTab(this,'pp-posts','pp-about')">History</div>
+    <div class="tbar-tab"    onclick="switchTab(this,'pp-about','pp-posts')">About</div>
   </div>
   <div class="scroll" style="padding-bottom:8px">
     <div id="pp-posts">
-      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🎹</div><div class="pp-body"><div class="pp-title">Why timing regularity is the most reliable AI signal</div><div class="pp-meta">Creation Note · 3d ago</div></div></div>
-      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🌍</div><div class="pp-body"><div class="pp-title">The Gospel roots in Midnight Feeling nobody is talking about</div><div class="pp-meta">Cultural Piece · 1w ago</div></div></div>
-      <div class="ppost" onclick="showToast('Post view coming soon')"><div class="pp-icon">🎼</div><div class="pp-body"><div class="pp-title">Tracing Quincy Jones' influence across 4 AI tracks this month</div><div class="pp-meta">Production Story · 2w ago</div></div></div>
-      <div style="padding:20px;font-family:var(--fm);font-size:10px;color:var(--dim);text-align:center;letter-spacing:.08em">You do not have any more posts yet</div>
-    </div>
-    <div id="pp-comments" style="display:none">
-      <div class="pcomment"><div class="pc-on">On <strong>How Quincy Jones shaped the voice AI learned to love</strong></div><div class="pc-text">The point about string counterpoint is exactly right. You can hear it most clearly in the mid-range — it fills the space that a human vocal performance would leave naturally.</div><div class="pc-time">1d ago</div></div>
-      <div class="pcomment"><div class="pc-on">On <strong>Afrobeats and the rhythm AI borrows without credit</strong></div><div class="pc-text">This is the piece I've been waiting for. The 12/8 feel is everywhere in AI music right now and the conversation about its origins is completely absent from mainstream discourse.</div><div class="pc-time">3d ago</div></div>
+      <div id="profile-history-list"></div>
+      <div id="profile-history-empty" class="empty-state">
+        <div class="empty-icon">🎵</div>
+        <div class="empty-title">No traces yet</div>
+        <div class="empty-body">Songs you trace will be saved here on this device — no account needed.</div>
+      </div>
     </div>
     <div id="pp-about" style="display:none">
-      <div class="about-bio">Music researcher and listener. Interested in production history, cultural lineage, and how AI is reshaping the relationship between artists and their legacies.</div>
-      <div class="about-stats">
-        <div class="about-stat"><div class="as-n">48</div><div class="as-l">Traces</div></div>
-        <div class="about-stat"><div class="as-n">12</div><div class="as-l">Posts</div></div>
-        <div class="about-stat"><div class="as-n">34</div><div class="as-l">Comments</div></div>
-        <div class="about-stat"><div class="as-n">7</div><div class="as-l">Saved</div></div>
-      </div>
+      <div class="about-bio">Provenance documents the cultural lineage behind music and helps surface where AI-generated tracks may have drawn from. Your trace history is stored locally on this device only — nothing is uploaded or tied to an account.</div>
     </div>
   </div>
   <div class="bnav">
@@ -1729,7 +1655,204 @@ function renderResult(data) {
   if (data.artistRecognition) {
     document.querySelector('.justice-text').innerHTML = data.artistRecognition.message;
   }
+
+  saveTraceToHistory(data);
 }
+
+/* ════════════════════════
+   TRACE HISTORY (localStorage, no login needed)
+════════════════════════ */
+const TRACE_HISTORY_KEY = 'provenance_trace_history';
+const MAX_HISTORY = 50;
+
+function getTraceHistory() {
+  try {
+    const raw = localStorage.getItem(TRACE_HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTraceToHistory(data) {
+  try {
+    let history = getTraceHistory();
+
+    // Avoid duplicate consecutive entries for the same traceId
+    history = history.filter(h => h.traceId !== data.traceId);
+
+    history.unshift({
+      traceId: data.traceId,
+      title: data.song.title,
+      artist: data.song.artist,
+      year: data.song.year,
+      isAiGenerated: data.song.isAiGenerated,
+      aiVerdict: data.summary.aiVerdict,
+      aiPillClass: data.summary.aiPillClass,
+      aiLikelihoodScore: data.summary.aiLikelihoodScore,
+      influences: data.creativeLineage?.influences || [],
+      genreLineage: data.creativeLineage?.genreLineage || [],
+      culturalContext: data.creativeLineage?.culturalContext || null,
+      verdictSentence: data.summary.verdictSentence,
+      tracedAt: Date.now()
+    });
+
+    history = history.slice(0, MAX_HISTORY);
+    localStorage.setItem(TRACE_HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    console.warn('Could not save trace history', e);
+  }
+}
+
+function clearTraceHistory() {
+  localStorage.removeItem(TRACE_HISTORY_KEY);
+  renderLineageHistory();
+  renderProfileHistory();
+  renderYourActivity();
+}
+
+function timeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
+}
+
+function pillColorVar(pillClass) {
+  if (pillClass === 'vp-hi') return 'var(--mag)';
+  if (pillClass === 'vp-md') return 'var(--amber)';
+  return 'var(--green)';
+}
+
+/* ── Lineage tab — real recent traces ────────────────────────────── */
+function renderLineageHistory() {
+  const container = document.getElementById('lineage-recent');
+  const empty     = document.getElementById('lineage-empty');
+  if (!container || !empty) return;
+
+  const history = getTraceHistory();
+
+  if (history.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  container.innerHTML = history.slice(0, 8).map(h => {
+    const influenceRows = (h.influences || []).slice(0, 3).map((inf, i) => {
+      const dotColors = ['var(--violet)', 'var(--amber)', 'var(--mag)'];
+      return `<div class="li"><div class="li-dot" style="background:${dotColors[i] || 'var(--violet)'}"></div><div class="li-text">${inf.type || 'Influence'} — <strong>${inf.name}</strong></div></div>`;
+    }).join('');
+
+    const cultureRow = h.culturalContext
+      ? `<div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>${(h.genreLineage || []).map(g => g.name).join(', ') || 'Documented tradition'}</strong></div></div>`
+      : '';
+
+    const emoji = h.isAiGenerated ? '🤖' : '🎤';
+
+    return `
+      <div class="card" style="margin:0 16px 14px" onclick="reopenTrace('${h.traceId}')">
+        <div style="display:flex;gap:12px;align-items:center;padding:13px 14px">
+          <div style="width:46px;height:46px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#2a0a4e,#6a1a9c)">${emoji}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px">${h.title}</div><div style="font-family:var(--fm);font-size:10px;color:var(--muted)">${h.artist}${h.year ? ' · ' + h.year : ''}</div></div>
+        </div>
+        <div class="lcard-body">
+          <div class="lcard-ll">Creative Lineage</div>
+          ${influenceRows || cultureRow || '<div class="li"><div class="li-text">No lineage data available for this track.</div></div>'}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function reopenTrace(traceId) {
+  const history = getTraceHistory();
+  const item = history.find(h => h.traceId === traceId);
+  if (!item) { go('trace'); return; }
+
+  go('trace');
+  document.getElementById('t-idle').style.display = 'none';
+  document.getElementById('t-loading').style.display = 'none';
+  document.getElementById('t-result').style.display = 'block';
+  traceState = 'result';
+
+  document.getElementById('result-song-meta').textContent =
+    `${item.title} · ${item.artist}${item.year ? ' · ' + item.year : ''}`;
+
+  const pill = document.querySelector('.verdict-pill');
+  pill.className = `verdict-pill ${item.aiPillClass}`;
+  pill.innerHTML = `<div class="vp-dot"></div>${item.aiVerdict}`;
+  document.querySelector('.verdict-sentence').innerHTML = item.verdictSentence || '';
+}
+
+/* ── Profile tab — real session stats and history ───────────────────── */
+function renderProfileHistory() {
+  const history = getTraceHistory();
+  const list  = document.getElementById('profile-history-list');
+  const empty = document.getElementById('profile-history-empty');
+  const tracedEl = document.getElementById('prof-traced');
+  const aiEl     = document.getElementById('prof-ai');
+  const humanEl  = document.getElementById('prof-human');
+
+  if (tracedEl) tracedEl.textContent = history.length;
+  if (aiEl)     aiEl.textContent     = history.filter(h => h.aiLikelihoodScore >= 0.65).length;
+  if (humanEl)  humanEl.textContent  = history.filter(h => h.aiLikelihoodScore <= 0.20).length;
+
+  if (!list || !empty) return;
+
+  if (history.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  list.innerHTML = history.map(h => {
+    const icon = h.isAiGenerated || h.aiLikelihoodScore >= 0.65 ? '🤖' : '🎤';
+    return `<div class="ppost" onclick="reopenTrace('${h.traceId}')"><div class="pp-icon">${icon}</div><div class="pp-body"><div class="pp-title">${h.title} — ${h.artist}</div><div class="pp-meta">${h.aiVerdict} · ${timeAgo(h.tracedAt)}</div></div></div>`;
+  }).join('');
+}
+
+/* ── Community "Your Activity" tab — real history ────────────────────── */
+function renderYourActivity() {
+  const history = getTraceHistory();
+  const list  = document.getElementById('your-activity-list');
+  const empty = document.getElementById('your-activity-empty');
+  if (!list || !empty) return;
+
+  if (history.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  list.innerHTML = history.map(h => {
+    return `<div class="ppost" onclick="reopenTrace('${h.traceId}')"><div class="pp-icon">🔍</div><div class="pp-body"><div class="pp-title">Traced "${h.title}" by ${h.artist}</div><div class="pp-meta">${h.aiVerdict} · ${timeAgo(h.tracedAt)}</div></div></div>`;
+  }).join('');
+}
+
+// Render history whenever the relevant screens are opened
+const _originalGo = go;
+go = function(screenId) {
+  _originalGo(screenId);
+  if (screenId === 'lineage') renderLineageHistory();
+  if (screenId === 'profile') renderProfileHistory();
+  if (screenId === 'community') renderYourActivity();
+};
+
+// Initial render in case the app loads directly on one of these screens
+document.addEventListener('DOMContentLoaded', () => {
+  renderLineageHistory();
+  renderProfileHistory();
+  renderYourActivity();
+});
 /* ════════════════════════
    COLLAPSIBLE
 ════════════════════════ */

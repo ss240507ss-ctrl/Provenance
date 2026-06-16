@@ -62,15 +62,114 @@ async function trace(songData, spotifyData, productionSignals) {
   return { influences, genreLineage, culturalContext, humanContribution, artistRecognition, influenceScores };
 }
 
+// Influences AI music is most likely trained on, by genre family
+const AI_GENRE_INFLUENCES = {
+  'rnb-soul': [
+    { name: 'Aaliyah', type: 'Vocal influence', description: "Aaliyah's smooth R&B vocal style is heavily replicated in AI-generated R&B." },
+    { name: 'Brandy', type: 'Vocal influence', description: "Brandy's layered harmonics and vocal texture are foundational to 90s R&B AI training data." },
+    { name: 'Mariah Carey', type: 'Vocal influence', description: "Mariah's melismatic runs and vocal range are among the most imitated in AI music." }
+  ],
+  'neo-soul': [
+    { name: 'Erykah Badu', type: 'Vocal and production influence', description: "Erykah Badu's neo soul aesthetic is deeply embedded in AI training data." },
+    { name: 'Lauryn Hill', type: 'Vocal influence', description: "Lauryn Hill's vocal style and songwriting are foundational to neo soul AI imitation." },
+    { name: "D'Angelo", type: 'Production influence', description: "D'Angelo's production style defined neo soul and is widely replicated by AI." }
+  ],
+  'trap-soul': [
+    { name: 'Bryson Tiller', type: 'Vocal influence', description: 'Bryson Tiller defined trap soul — AI heavily imitates his whisper-to-belt vocal style.' },
+    { name: 'Summer Walker', type: 'Vocal influence', description: "Summer Walker's raw R&B vulnerability is widely replicated in AI trap soul." },
+    { name: 'SZA', type: 'Vocal and production influence', description: "SZA's alternative R&B sound is among the most imitated by AI music generators." }
+  ],
+  'hiphop': [
+    { name: 'Kendrick Lamar', type: 'Lyrical influence', description: "Kendrick's flow and production aesthetic are heavily present in AI hip-hop training data." },
+    { name: 'Drake', type: 'Vocal influence', description: "Drake's melodic rap style is among the most replicated in AI-generated hip-hop." },
+    { name: 'J. Cole', type: 'Lyrical influence', description: "J. Cole's introspective style is widely used in AI hip-hop training datasets." }
+  ],
+  'pop': [
+    { name: 'Beyoncé', type: 'Vocal influence', description: "Beyoncé's vocal power and production scale are deeply embedded in AI pop training data." },
+    { name: 'Rihanna', type: 'Vocal influence', description: "Rihanna's distinctive vocal tone is one of the most replicated in AI pop music." },
+    { name: 'Adele', type: 'Vocal influence', description: "Adele's emotional delivery and dynamics are widely imitated by AI vocal generators." }
+  ],
+  'amapiano': [
+    { name: 'Kabza De Small', type: 'Production influence', description: "Kabza De Small's piano and log drum arrangements define the Amapiano sound AI replicates." },
+    { name: 'DJ Maphorisa', type: 'Production influence', description: "DJ Maphorisa's production style is the foundation of Amapiano that AI systems learn from." },
+    { name: 'Uncle Waffles', type: 'Performance influence', description: "Uncle Waffles brought Amapiano's energy to global audiences whose work AI now imitates." }
+  ],
+  'afrobeats': [
+    { name: 'Burna Boy', type: 'Vocal and production influence', description: "Burna Boy's Afrofusion style is among the most replicated African sounds in AI music." },
+    { name: 'Wizkid', type: 'Vocal influence', description: "Wizkid's smooth Afrobeats vocals are heavily present in AI training datasets." },
+    { name: 'Davido', type: 'Production influence', description: "Davido's Afrobeats production aesthetic is widely imitated by AI music generators." }
+  ]
+};
+
+// Default fallback for AI tracks in genres we haven't mapped — always non-empty
+const AI_GENERIC_INFLUENCES = [
+  { name: 'Whitney Houston', type: 'Vocal influence', description: "Whitney Houston's vocal techniques are among the most foundational signals in AI vocal training data." },
+  { name: 'Michael Jackson', type: 'Vocal and production influence', description: "Michael Jackson's vocal and production style is one of the most replicated references in AI-generated music." },
+  { name: 'Stevie Wonder', type: 'Compositional influence', description: "Stevie Wonder's melodic and harmonic sensibility runs through a huge amount of AI training data." }
+];
+
 function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals) {
-  const similar = similarArtists?.similarartists?.artist || [];
+  const similar    = similarArtists?.similarartists?.artist || [];
+  const isAiTrack  = productionSignals.aiLikelihoodScore > 0.65;
+  const weights    = [0.65, 0.20, 0.10];
 
-  // For AI tracks, skip Last.fm similar artists
-  // (they'd return other AI artists) and use human artist database instead
-  const isAiTrack = productionSignals.aiLikelihoodScore > 0.70;
+  // Highest priority: web-verified confirmed voice clone (e.g. Claude found
+  // public reporting that this AI track clones a specific named artist's voice)
+  if (productionSignals.confirmedClonedArtist) {
+    const clonedName = productionSignals.confirmedClonedArtist;
+    const primary = [{
+      name: clonedName,
+      estate: null,
+      hasEstate: false,
+      type: 'Confirmed voice clone',
+      description: productionSignals.verificationSummary
+        ? `Public reporting confirms this track uses an AI-cloned voice of ${clonedName}. ${productionSignals.verificationSummary}`
+        : `Public reporting confirms this track uses an AI-cloned voice of ${clonedName}.`,
+      score: weights[0],
+      displayPercentage: 65
+    }];
+    const rest = (AI_GENRE_INFLUENCES[genreFamily] || AI_GENERIC_INFLUENCES)
+      .filter(inf => inf.name !== clonedName)
+      .slice(0, 2)
+      .map((inf, i) => ({
+        name: inf.name, estate: null, hasEstate: false,
+        type: inf.type, description: inf.description,
+        score: weights[i + 1] || 0.05, displayPercentage: [20, 10][i] || 5
+      }));
+    return [...primary, ...rest];
+  }
 
-  if (similar.length > 0 && !isAiTrack) {
-    const weights = [0.65, 0.20, 0.10];
+  // Real audio-similarity match (from librosa feature comparison) — most accurate
+  if (productionSignals.similarArtists && productionSignals.similarArtists.length > 0) {
+    return productionSignals.similarArtists.slice(0, 3).map((a, i) => ({
+      name: a.name,
+      estate: null,
+      hasEstate: false,
+      type: isAiTrack ? 'Vocal/production similarity (audio-matched)' : guessInfluenceType(genreFamily),
+      description: isAiTrack
+        ? `Audio analysis found this track's vocal and production characteristics closely resemble ${a.name} (${Math.round(a.similarity * 100)}% similarity).`
+        : `${a.name} shares strong sonic and stylistic characteristics with this track (${Math.round(a.similarity * 100)}% similarity).`,
+      score: weights[i] || 0.05,
+      displayPercentage: [65, 20, 10][i] || 5
+    }));
+  }
+
+  // AI tracks without audio match — show the real human artists AI likely learned this style from
+  if (isAiTrack) {
+    const influences = AI_GENRE_INFLUENCES[genreFamily] || AI_GENERIC_INFLUENCES;
+    return influences.map((inf, i) => ({
+      name: inf.name,
+      estate: null,
+      hasEstate: false,
+      type: inf.type,
+      description: inf.description,
+      score: weights[i] || 0.05,
+      displayPercentage: [65, 20, 10][i] || 5
+    }));
+  }
+
+  // Human tracks — use Last.fm similar artists if available
+  if (similar.length > 0) {
     return similar.slice(0, 3).map((a, idx) => ({
       name: a.name,
       estate: null,
@@ -82,10 +181,15 @@ function buildInfluences(similarArtists, currentArtist, genreFamily, productionS
     }));
   }
 
-  // Fallback to hardcoded database
+  // Fallback to hardcoded human artist database
   const candidates = ARTIST_DATABASE.filter(a => a.genreFamilies.includes(genreFamily));
-  if (candidates.length === 0) return [];
-  const weights = [0.65, 0.20, 0.10];
+  if (candidates.length === 0) {
+    return AI_GENERIC_INFLUENCES.map((inf, i) => ({
+      name: inf.name, estate: null, hasEstate: false,
+      type: inf.type, description: inf.description,
+      score: weights[i] || 0.05, displayPercentage: [65, 20, 10][i] || 5
+    }));
+  }
   return candidates
     .sort((a, b) => b.baseInfluenceScore - a.baseInfluenceScore)
     .slice(0, 3)

@@ -248,7 +248,52 @@ async function analyse(resolved, songData) {
     return fastResult;
   }
 
-  // Step 2: Uncertain case — try slow audio analysis to catch voice cloning etc.
+  // Step 2: Uncertain case — ask Claude (with web search) + Google Search
+  // whether this is a known AI artist or a confirmed voice clone of a real artist.
+  // This is faster and often more accurate than the audio waterfall for
+  // catching cases that are already publicly documented (e.g. L$30 cloning MJ).
+  try {
+    const [claudeCheck, googleCheck] = await Promise.all([
+      checkClaudeVerification(songData.artist, songData.title),
+      checkGoogleSearch(songData.artist)
+    ]);
+
+    if (claudeCheck && claudeCheck.sourceFound && claudeCheck.confidence >= 0.6) {
+      if (claudeCheck.isVoiceClone && claudeCheck.clonedArtistName) {
+        return buildResult({
+          aiScore: Math.max(0.80, claudeCheck.confidence),
+          pitchCorrection: 'High', breathPresence: 'Low',
+          timingRegularity: 'Very High', spectralSmoothing: 'High',
+          dynamicRange: 'Compressed',
+          confidence: claudeCheck.confidence,
+          method: 'claude-web-verified-voice-clone',
+          confirmedClonedArtist: claudeCheck.clonedArtistName,
+          verificationSummary: claudeCheck.summary
+        });
+      }
+      if (claudeCheck.isAiArtist) {
+        return buildResult({
+          aiScore: Math.max(0.80, claudeCheck.confidence),
+          pitchCorrection: 'High', breathPresence: 'Low',
+          timingRegularity: 'Very High', spectralSmoothing: 'High',
+          dynamicRange: 'Compressed',
+          confidence: claudeCheck.confidence,
+          method: 'claude-web-verified-ai-artist',
+          verificationSummary: claudeCheck.summary
+        });
+      }
+    }
+
+    if (googleCheck?.found && googleCheck.aiKeywordHit) {
+      // Corroborating signal even without Claude's confirmation
+      const boosted = Math.min(0.85, fastResult.aiLikelihoodScore + 0.25);
+      return { ...fastResult, aiLikelihoodScore: boosted, method: fastResult.method + '+google-search-signal' };
+    }
+  } catch (err) {
+    console.warn('Claude/Google verification step failed:', err.message);
+  }
+
+  // Step 3: Still uncertain — try slow audio analysis to catch voice cloning etc.
   if (process.env.PYTHON_SERVICE_URL) {
     try {
       const audioResult = await callPythonService(resolved, songData);
@@ -370,7 +415,97 @@ function analyseWithFeatures(af, genres, baseScore, verification) {
   });
 }
 
-function analyseFromGenre(genres, baseScore = 0.35) {
+// ── Claude API + Google Search verification ─────────────────────────────
+// For uncertain cases, ask Claude (with web search) whether the artist
+// is a known AI-generated artist or a voice clone of a real artist.
+// This catches cases like L$30 using a cloned Michael Jackson voice,
+// where verification sources alone can't tell.
+
+const claudeVerificationCache = new Map();
+
+async function checkClaudeVerification(artistName, songTitle) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || !artistName) return null;
+
+  const cacheKey = `${artistName}::${songTitle}`.toLowerCase().trim();
+  if (claudeVerificationCache.has(cacheKey)) return claudeVerificationCache.get(cacheKey);
+
+  try {
+    const prompt = `Search the web to answer this about a music artist/track.
+
+Artist: "${artistName}"
+Track: "${songTitle}"
+
+Determine:
+1. Is "${artistName}" a confirmed or widely-reported AI-generated artist (e.g. made with Suno, Udio, or similar)?
+2. Does this artist or track use a cloned/AI-replicated voice of a real, named human artist? If so, who?
+3. Is there any public reporting (news, Reddit, music blogs) discussing this specifically?
+
+Respond with ONLY a JSON object, no other text, in this exact shape:
+{"isAiArtist": true/false, "isVoiceClone": true/false, "clonedArtistName": "Name or null", "confidence": 0.0-1.0, "summary": "one short sentence", "sourceFound": true/false}`;
+
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 20000
+      }
+    );
+
+    // Extract text content from response (may include tool use blocks)
+    const textBlocks = (response.data?.content || []).filter(b => b.type === 'text');
+    const fullText = textBlocks.map(b => b.text).join('\n');
+
+    // Try to find a JSON object in the response
+    const jsonMatch = fullText.match(/\{[^{}]*"isAiArtist"[^{}]*\}/s) || fullText.match(/\{.*\}/s);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    claudeVerificationCache.set(cacheKey, parsed);
+    console.log(`Claude verification [${artistName}]:`, JSON.stringify(parsed));
+    return parsed;
+
+  } catch (err) {
+    console.warn('Claude verification failed:', err.message);
+    return null;
+  }
+}
+
+// ── Google Custom Search backup check ────────────────────────────────────
+async function checkGoogleSearch(artistName) {
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const engineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  if (!apiKey || !engineId || !artistName) return null;
+
+  try {
+    const query = `"${artistName}" AI generated artist OR AI voice clone OR Suno OR Udio`;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${engineId}&q=${encodeURIComponent(query)}&num=5`;
+    const res = await axios.get(url, { timeout: 6000 });
+
+    if (res.status === 200 && res.data?.items?.length > 0) {
+      const snippets = res.data.items.map(item => (item.snippet || '').toLowerCase()).join(' ');
+      const aiKeywordHit = ['ai-generated', 'ai generated', 'voice clone', 'suno', 'udio', 'artificial intelligence']
+        .some(kw => snippets.includes(kw));
+      return { found: true, aiKeywordHit, resultCount: res.data.items.length };
+    }
+    return { found: false };
+  } catch (err) {
+    console.warn('Google Search check failed:', err.message);
+    return null;
+  }
+}
+
+
   let aiScore = baseScore;
   if (isGenre(genres, ['amapiano', 'afrobeats', 'afropop', 'afrohouse', 'kwaito',
                         'dancehall', 'reggae', 'latin', 'soca', 'highlife',
@@ -389,13 +524,15 @@ function analyseFromGenre(genres, baseScore = 0.35) {
   });
 }
 
-function buildResult({ aiScore, pitchCorrection, breathPresence, timingRegularity, spectralSmoothing, dynamicRange, confidence, method }) {
+function buildResult({ aiScore, pitchCorrection, breathPresence, timingRegularity, spectralSmoothing, dynamicRange, confidence, method, confirmedClonedArtist, verificationSummary }) {
   return {
     pitchCorrection, breathPresence, timingRegularity, spectralSmoothing, dynamicRange,
     aiLikelihoodScore: aiScore,
     modelConfidence:   confidence,
     signalConfidence:  confidence * 0.95,
-    method
+    method,
+    confirmedClonedArtist: confirmedClonedArtist || null,
+    verificationSummary: verificationSummary || null
   };
 }
 
