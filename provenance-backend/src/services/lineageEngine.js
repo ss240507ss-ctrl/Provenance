@@ -21,13 +21,11 @@ const LASTFM_KEY  = process.env.LASTFM_API_KEY;
 // result. Refreshes every 24 hours, falls back to the small hand-picked
 // AI_GENRE_INFLUENCES pools below if a live fetch fails or hasn't run yet.
 const WIKIPEDIA_GENRE_CATEGORIES = {
-  // Only genres directly verified tonight to return clean, correctly
-  // genre-matched, real human artist names are enabled here. Others
-  // (hiphop, pop, gospel, jazz, rock, reggae, electronic, trap-soul)
-  // intentionally fall through to the small, already-correct hand-picked
-  // AI_GENRE_INFLUENCES pools below until each category is verified —
-  // a bad category guess (e.g. hiphop pulling in Japanese duo Creepy Nuts
-  // for an American R&B track) is worse than a smaller, reliable pool.
+  // Only genres directly verified to return clean, correctly genre-matched,
+  // real human artist names are enabled here. Others (pop, gospel, jazz,
+  // rock, reggae, electronic, trap-soul) intentionally fall through to the
+  // small, already-correct hand-picked AI_GENRE_INFLUENCES pools below
+  // until each category is individually verified.
   'rnb-soul': [
     'Category:American contemporary R%26B singers',
     'Category:British soul',
@@ -43,6 +41,9 @@ const WIKIPEDIA_GENRE_CATEGORIES = {
   'afrobeats': [
     'Category:Nigerian Afrobeats musicians',
     'Category:Ghanaian musicians'
+  ],
+  'hiphop': [
+    'Category:American hip-hop musicians'
   ]
 };
 
@@ -354,9 +355,18 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
     }));
   }
 
-  // Human tracks — use Last.fm similar artists if available
-  if (similar.length > 0) {
-    return similar.slice(0, 3).map((a, idx) => ({
+  // Human tracks — use Last.fm similar artists if available.
+  // Filter out low-confidence matches: Last.fm sometimes suggests
+  // genre/era-mismatched artists with very weak similarity scores
+  // (e.g. unrelated international artists for a 2000s American rap track).
+  const MIN_LASTFM_MATCH = 0.15;
+  const reliableSimilar = similar.filter(a => {
+    const matchScore = parseFloat(a.match);
+    return isNaN(matchScore) || matchScore >= MIN_LASTFM_MATCH;
+  });
+
+  if (reliableSimilar.length > 0) {
+    return reliableSimilar.slice(0, 3).map((a, idx) => ({
       name: a.name,
       estate: null,
       hasEstate: false,
