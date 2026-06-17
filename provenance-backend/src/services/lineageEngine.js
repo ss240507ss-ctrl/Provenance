@@ -359,11 +359,15 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
   // Filter out low-confidence matches: Last.fm sometimes suggests
   // genre/era-mismatched artists with very weak similarity scores
   // (e.g. unrelated international artists for a 2000s American rap track).
+  console.log(`Last.fm raw similar artists for [${currentArtist}]:`, JSON.stringify(similar.map(a => ({ name: a.name, match: a.match }))));
+
   const MIN_LASTFM_MATCH = 0.15;
   const reliableSimilar = similar.filter(a => {
     const matchScore = parseFloat(a.match);
     return isNaN(matchScore) || matchScore >= MIN_LASTFM_MATCH;
   });
+
+  console.log(`Last.fm after filtering for [${currentArtist}]:`, JSON.stringify(reliableSimilar.map(a => ({ name: a.name, match: a.match }))));
 
   if (reliableSimilar.length > 0) {
     return reliableSimilar.slice(0, 3).map((a, idx) => ({
