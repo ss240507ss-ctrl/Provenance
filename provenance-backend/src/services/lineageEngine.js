@@ -369,7 +369,13 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
 
   console.log(`Last.fm after filtering for [${currentArtist}]:`, JSON.stringify(reliableSimilar.map(a => ({ name: a.name, match: a.match }))));
 
-  if (reliableSimilar.length > 0) {
+  // TEMPORARILY DISABLED: Last.fm similar-artists was returning
+  // genre/era-mismatched names (e.g. Creepy Nuts for Eve) that
+  // persisted through multiple fix attempts. Disabling this path
+  // entirely for now — falls through to the safe hand-picked
+  // ARTIST_DATABASE fallback below instead. Revisit with a clear
+  // head later; do not re-enable without testing.
+  if (false && reliableSimilar.length > 0) {
     return reliableSimilar.slice(0, 3).map((a, idx) => ({
       name: a.name,
       estate: null,
