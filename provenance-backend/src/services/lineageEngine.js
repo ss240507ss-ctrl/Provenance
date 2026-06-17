@@ -420,8 +420,34 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
       score: weights[i] || 0.05, displayPercentage: [65, 20, 10][i] || 5
     }));
   }
-  return candidates
-    .sort((a, b) => b.baseInfluenceScore - a.baseInfluenceScore)
+
+  // Score candidates by a blend of base influence and era proximity to the
+  // track's own release year — a historically influential but era-mismatched
+  // legacy artist (e.g. Michael Jackson for a 2021 track) shouldn't always
+  // beat a contemporary artist whose active period actually overlaps.
+  const scoredCandidates = candidates.map(c => {
+    let eraScore = 1.0; // neutral if we don't have a track year to compare
+    if (trackYear && c.activePeriod) {
+      const [start, end] = c.activePeriod;
+      if (trackYear >= start && trackYear <= end) {
+        eraScore = 1.0; // active during the track's release — full credit
+      } else if (trackYear > end) {
+        // Track released after this artist's career ended — decay faster,
+        // since posthumous "influence" should weigh less than someone
+        // whose career genuinely overlaps the track's era.
+        const distance = trackYear - end;
+        eraScore = Math.max(0.25, 1.0 - distance * 0.08);
+      } else {
+        // Track released before this artist's career even started —
+        // can't be a real influence at all in the traditional sense.
+        eraScore = 0.15;
+      }
+    }
+    return { ...c, combinedScore: c.baseInfluenceScore * eraScore };
+  });
+
+  return scoredCandidates
+    .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, 3)
     .map((c, i) => ({
       name: c.name, estate: c.estate, hasEstate: c.hasEstate,

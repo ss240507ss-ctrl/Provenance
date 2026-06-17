@@ -200,6 +200,57 @@ module.exports = [
     aiTrainingLikelihood: 0.72
   },
 
+  /* ── Contemporary R&B/neo-soul entries added to fix era-mismatch for
+     modern (2010s-2020s) alt-R&B tracks, e.g. KAYTRANADA feat. H.E.R. ──── */
+  {
+    name: 'H.E.R.',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'neo-soul'],
+    influenceType: 'Vocal and guitar influence',
+    influenceDescription: 'Smooth, guitar-driven contemporary R&B vocal style that defined the genre\'s 2017-2020s resurgence.',
+    audioProfile: { energyRange: [0.3, 0.7], tempoRange: [70, 110], danceabilityRange: [0.4, 0.75] },
+    activePeriod: [2016, 2099],
+    baseInfluenceScore: 0.55,
+    aiTrainingLikelihood: 0.75
+  },
+  {
+    name: 'SZA',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'neo-soul', 'trap-soul'],
+    influenceType: 'Vocal and lyrical influence',
+    influenceDescription: 'Genre-blurring, conversational alt-R&B vocal style that became one of the most replicated sounds of the late 2010s/2020s.',
+    audioProfile: { energyRange: [0.35, 0.75], tempoRange: [70, 115], danceabilityRange: [0.45, 0.8] },
+    activePeriod: [2012, 2099],
+    baseInfluenceScore: 0.58,
+    aiTrainingLikelihood: 0.80
+  },
+  {
+    name: 'Anderson .Paak',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'funk', 'hiphop'],
+    influenceType: 'Vocal and production influence',
+    influenceDescription: 'Funk-and-soul-rooted vocal delivery and live-instrumentation production style central to 2010s-2020s R&B crossover.',
+    audioProfile: { energyRange: [0.5, 0.85], tempoRange: [85, 125], danceabilityRange: [0.6, 0.88] },
+    activePeriod: [2014, 2099],
+    baseInfluenceScore: 0.55,
+    aiTrainingLikelihood: 0.78
+  },
+  {
+    name: 'Frank Ocean',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'neo-soul'],
+    influenceType: 'Vocal and compositional influence',
+    influenceDescription: 'Introspective, unconventional song structures and falsetto-driven delivery that reshaped contemporary alt-R&B.',
+    audioProfile: { energyRange: [0.25, 0.6], tempoRange: [65, 105], danceabilityRange: [0.3, 0.65] },
+    activePeriod: [2011, 2099],
+    baseInfluenceScore: 0.55,
+    aiTrainingLikelihood: 0.75
+  },
+
   /* ── Hip-hop / rap entries added to fix empty hiphop bucket ──────────── */
   {
     name: 'Lauryn Hill',
