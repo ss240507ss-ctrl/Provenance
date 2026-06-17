@@ -172,11 +172,16 @@ function normalise(raw, source) {
 
   // Handle Spotify format
   const artistName = raw.artists?.[0]?.name || raw.artist || 'Unknown';
+  const featuredArtists = (raw.artists || [])
+    .slice(1)
+    .map(a => ({ name: a.name, id: a.id }))
+    .filter(a => a.name);
   const isAi = detectAiFromText(`${raw.name || raw.title} ${artistName}`);
 
   return {
     title: raw.name || raw.title,
     artist: artistName,
+    featuredArtists,
     album: raw.album?.name || null,
     year: raw.album?.release_date ? new Date(raw.album.release_date).getFullYear() : null,
     genres: raw.genres || [],

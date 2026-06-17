@@ -129,16 +129,43 @@ async function trace(songData, spotifyData, productionSignals) {
   const artist = songData.artist || '';
   const title  = songData.title  || '';
   const genres = normaliseGenres(songData.genres, spotifyData?.genres);
+  const featuredArtists = songData.featuredArtists || [];
 
-  const [similarArtists, artistTags, trackTags] = await Promise.all([
+  const [similarArtists, artistTags, trackTags, featuredArtistTags] = await Promise.all([
     getSimilarArtists(artist),
     getArtistTags(artist),
-    getTrackTags(artist, title)
+    getTrackTags(artist, title),
+    // Only fetch the first featured artist's tags, to keep this fast —
+    // featured artist genre often matters more than a genre-fluid
+    // primary artist/producer's own broader tags (e.g. KAYTRANADA is
+    // tagged electronic/hip-hop/funk himself, but a track featuring
+    // H.E.R. is genuinely an R&B track because of who's singing).
+    featuredArtists[0] ? getArtistTags(featuredArtists[0].name) : Promise.resolve(null)
   ]);
 
   const lastfmTags = extractTags(artistTags, trackTags);
-  const allGenres  = [...genres, ...lastfmTags].map(g => g.toLowerCase());
-  const genreFamily = detectGenreFamily(allGenres, artist.toLowerCase());
+  const featuredTags = featuredArtistTags
+    ? (featuredArtistTags.toptags?.tag || []).slice(0, 5).map(t => t.name)
+    : [];
+
+  const allGenres = [...genres, ...lastfmTags].map(g => g.toLowerCase());
+  const primaryGenreFamily = detectGenreFamily(allGenres, artist.toLowerCase());
+
+  let genreFamily = primaryGenreFamily;
+
+  // If the primary artist's own genre signal is broad/ambiguous (multiple
+  // very different genre families could plausibly apply) and a featured
+  // artist gives a clear, specific genre signal, prefer the featured
+  // artist's genre — they're often the one actually singing the hook/verse.
+  if (featuredTags.length > 0) {
+    const featuredGenreFamily = detectGenreFamily(featuredTags.map(g => g.toLowerCase()), featuredArtists[0].name.toLowerCase());
+    const primaryIsAmbiguous = isGenreFluidArtist(allGenres);
+
+    if (primaryIsAmbiguous && featuredGenreFamily !== 'pop') {
+      genreFamily = featuredGenreFamily;
+      console.log(`Genre override: ${artist} (ambiguous: ${allGenres.slice(0,5).join(', ')}) -> using featured artist ${featuredArtists[0].name}'s genre (${featuredGenreFamily})`);
+    }
+  }
 
   const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
@@ -431,6 +458,25 @@ function detectGenreFamily(genres, artist) {
   if (matches(g, ['country', 'folk', 'americana', 'bluegrass'])) return 'folk-country';
   if (matches(g, ['latin', 'salsa', 'bossa nova', 'cumbia'])) return 'latin';
   return 'pop';
+}
+
+// Detects whether an artist's combined tags genuinely span multiple,
+// distinct genre families (e.g. KAYTRANADA: tagged electronic, hip-hop,
+// R&B, and funk all at once — a real, well-documented genre-fluid
+// producer, not a tagging error). When true, a featured artist's own
+// clearer genre signal should be preferred over this artist's tags alone.
+function isGenreFluidArtist(genres) {
+  const g = genres.join(' ');
+  const FAMILY_KEYWORD_GROUPS = [
+    ['hip hop', 'hip-hop', 'rap', 'trap', 'drill'],
+    ['r&b', 'rnb', 'soul', 'motown'],
+    ['electronic', 'edm', 'techno', 'house', 'synth'],
+    ['funk', 'disco'],
+    ['rock', 'punk', 'metal'],
+    ['jazz', 'bebop', 'swing']
+  ];
+  const familiesPresent = FAMILY_KEYWORD_GROUPS.filter(group => matches(g, group));
+  return familiesPresent.length >= 3;
 }
 
 function assessHumanContribution(productionSignals) {
