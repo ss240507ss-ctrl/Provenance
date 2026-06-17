@@ -170,7 +170,8 @@ async function trace(songData, spotifyData, productionSignals) {
     }
   }
 
-  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year);
+  const featuredArtistNames = featuredArtists.map(a => a.name);
+  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year, featuredArtistNames);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
   const humanContribution = assessHumanContribution(productionSignals);
@@ -306,7 +307,30 @@ const AI_GENERIC_INFLUENCES = [
   { name: 'Stevie Wonder', type: 'Compositional influence', description: "Stevie Wonder's melodic and harmonic sensibility runs through a huge amount of AI training data." }
 ];
 
-async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals, trackYear) {
+// Public entry point — builds influences then strips out anyone who is
+// literally performing on this exact track (primary or featured artist),
+// since a performer can't be their own "influence." Backfills with the
+// next-best candidates from the same source if any get removed.
+async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals, trackYear, featuredArtistNames = []) {
+  const excludedNames = new Set(
+    [currentArtist, ...featuredArtistNames].filter(Boolean).map(n => n.toLowerCase().trim())
+  );
+
+  const raw = await buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear);
+  const filtered = raw.filter(inf => !excludedNames.has((inf.name || '').toLowerCase().trim()));
+
+  // If filtering removed someone, the remaining list might only have 1-2
+  // entries with mismatched percentage weights — just re-normalise display
+  // percentages across whatever's left rather than leaving gaps.
+  if (filtered.length < raw.length && filtered.length > 0) {
+    const weights = [65, 20, 10];
+    return filtered.map((inf, i) => ({ ...inf, displayPercentage: weights[i] || 5 }));
+  }
+
+  return filtered;
+}
+
+async function buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear) {
   const similar    = similarArtists?.similarartists?.artist || [];
   const isAiTrack  = productionSignals.aiLikelihoodScore > 0.65;
   const weights    = [0.65, 0.20, 0.10];
