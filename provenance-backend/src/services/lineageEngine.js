@@ -21,6 +21,13 @@ const LASTFM_KEY  = process.env.LASTFM_API_KEY;
 // result. Refreshes every 24 hours, falls back to the small hand-picked
 // AI_GENRE_INFLUENCES pools below if a live fetch fails or hasn't run yet.
 const WIKIPEDIA_GENRE_CATEGORIES = {
+  // Only genres directly verified tonight to return clean, correctly
+  // genre-matched, real human artist names are enabled here. Others
+  // (hiphop, pop, gospel, jazz, rock, reggae, electronic, trap-soul)
+  // intentionally fall through to the small, already-correct hand-picked
+  // AI_GENRE_INFLUENCES pools below until each category is verified —
+  // a bad category guess (e.g. hiphop pulling in Japanese duo Creepy Nuts
+  // for an American R&B track) is worse than a smaller, reliable pool.
   'rnb-soul': [
     'Category:American contemporary R%26B singers',
     'Category:British soul',
@@ -30,45 +37,12 @@ const WIKIPEDIA_GENRE_CATEGORIES = {
     'Category:American neo soul singers',
     'Category:Neo soul singers'
   ],
-  'trap-soul': [
-    'Category:Contemporary R%26B singers'
-  ],
-  'hiphop': [
-    'Category:American hip hop singers',
-    'Category:Nigerian hip hop musicians',
-    'Category:British hip hop musicians'
-  ],
-  'pop': [
-    'Category:American pop singers',
-    'Category:British pop singers',
-    'Category:South Korean pop singers'
-  ],
   'amapiano': [
     'Category:Amapiano musicians'
   ],
   'afrobeats': [
     'Category:Nigerian Afrobeats musicians',
     'Category:Ghanaian musicians'
-  ],
-  'gospel': [
-    'Category:American gospel singers',
-    'Category:Nigerian gospel musicians'
-  ],
-  'jazz': [
-    'Category:American jazz singers',
-    'Category:British jazz musicians'
-  ],
-  'rock': [
-    'Category:American rock singers',
-    'Category:British rock singers'
-  ],
-  'reggae': [
-    'Category:Jamaican reggae musicians',
-    'Category:Reggae musicians'
-  ],
-  'electronic': [
-    'Category:American electronic musicians',
-    'Category:British electronic musicians'
   ]
 };
 
@@ -165,7 +139,7 @@ async function trace(songData, spotifyData, productionSignals) {
   const allGenres  = [...genres, ...lastfmTags].map(g => g.toLowerCase());
   const genreFamily = detectGenreFamily(allGenres, artist.toLowerCase());
 
-  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals);
+  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
   const humanContribution = assessHumanContribution(productionSignals);
@@ -301,7 +275,7 @@ const AI_GENERIC_INFLUENCES = [
   { name: 'Stevie Wonder', type: 'Compositional influence', description: "Stevie Wonder's melodic and harmonic sensibility runs through a huge amount of AI training data." }
 ];
 
-async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals) {
+async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals, trackYear) {
   const similar    = similarArtists?.similarartists?.artist || [];
   const isAiTrack  = productionSignals.aiLikelihoodScore > 0.65;
   const weights    = [0.65, 0.20, 0.10];
