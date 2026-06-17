@@ -181,6 +181,20 @@ function buildResult({ traceId, input, songData, spotifyData, productionSignals,
       note: 'This section documents influence. It does not imply ownership or infringement.'
     },
 
+    // Layer 4.5: Contributors — real, sourced songwriter and producer credits
+    // from Genius. Gives visible recognition to the people behind a track,
+    // including (for AI-flagged tracks) those whose work may have been
+    // used in training without acknowledgement or compensation.
+    contributors: productionSignals.credits ? {
+      primaryArtist: productionSignals.credits.primaryArtist,
+      featuredArtists: productionSignals.credits.featuredArtists,
+      writers: productionSignals.credits.writers,
+      producers: productionSignals.credits.producers,
+      source: 'Genius',
+      sourceUrl: productionSignals.credits.geniusUrl,
+      note: 'Credits sourced from Genius. Coverage may be incomplete; absence of a name here does not mean they were uncredited.'
+    } : null,
+
     // Justice note
     artistRecognition: lineage.artistRecognition,
 
@@ -200,21 +214,15 @@ function buildVerdictSentence(songData, lineage) {
     return `This track shows characteristics consistent with ${songData.artist}'s style.`;
   }
 
-  const primary = influences[0];
-  const secondary = influences.slice(1, 3).map(i => i.name);
+  const names = influences.slice(0, 3).map(i => `<em>${i.name}</em>`);
 
-  let sentence = `This track sounds like <em>${primary.name}</em>`;
-
-  if (secondary.length === 1) {
-    sentence += `, with influence from <em>${secondary[0]}</em>`;
-  } else if (secondary.length >= 2) {
-    sentence += `, with influence from <em>${secondary[0]}</em> and <em>${secondary[1]}</em>`;
-  }
-
-  if (lineage.genreLineage && lineage.genreLineage.length > 0) {
-    sentence += `.`;
+  let sentence;
+  if (names.length === 1) {
+    sentence = `This track has influences from ${names[0]}.`;
+  } else if (names.length === 2) {
+    sentence = `This track has influences from ${names[0]} and ${names[1]}.`;
   } else {
-    sentence += `.`;
+    sentence = `This track has influences from ${names[0]}, ${names[1]}, and ${names[2]}.`;
   }
 
   return sentence;
