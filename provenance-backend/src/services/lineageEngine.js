@@ -12,6 +12,119 @@ const GENRE_LINEAGE   = require('../models/genreLineage');
 const LASTFM_BASE = 'https://ws.audioscrobbler.com/2.0/';
 const LASTFM_KEY  = process.env.LASTFM_API_KEY;
 
+// ── Wikipedia category-based artist pools ─────────────────────────────────
+// Pulls real artist names from Wikipedia category pages, giving each genre
+// a much wider, GLOBAL pool of real human artists rather than a small
+// hand-typed (and previously US-centric) list. Each genre merges several
+// confirmed-real categories from different countries/regions into one pool,
+// so a single American or single-country category never dominates the
+// result. Refreshes every 24 hours, falls back to the small hand-picked
+// AI_GENRE_INFLUENCES pools below if a live fetch fails or hasn't run yet.
+const WIKIPEDIA_GENRE_CATEGORIES = {
+  'rnb-soul': [
+    'Category:American contemporary R%26B singers',
+    'Category:British soul',
+    'Category:South African musicians'
+  ],
+  'neo-soul': [
+    'Category:American neo soul singers',
+    'Category:Neo soul singers'
+  ],
+  'trap-soul': [
+    'Category:Contemporary R%26B singers'
+  ],
+  'hiphop': [
+    'Category:American hip hop singers',
+    'Category:Nigerian hip hop musicians',
+    'Category:British hip hop musicians'
+  ],
+  'pop': [
+    'Category:American pop singers',
+    'Category:British pop singers',
+    'Category:South Korean pop singers'
+  ],
+  'amapiano': [
+    'Category:Amapiano musicians'
+  ],
+  'afrobeats': [
+    'Category:Nigerian Afrobeats musicians',
+    'Category:Ghanaian musicians'
+  ],
+  'gospel': [
+    'Category:American gospel singers',
+    'Category:Nigerian gospel musicians'
+  ],
+  'jazz': [
+    'Category:American jazz singers',
+    'Category:British jazz musicians'
+  ],
+  'rock': [
+    'Category:American rock singers',
+    'Category:British rock singers'
+  ],
+  'reggae': [
+    'Category:Jamaican reggae musicians',
+    'Category:Reggae musicians'
+  ],
+  'electronic': [
+    'Category:American electronic musicians',
+    'Category:British electronic musicians'
+  ]
+};
+
+const wikiGenrePoolCache = new Map();
+const WIKI_POOL_CACHE_HOURS = 24;
+
+// Names that show up in these categories but aren't useful as "sounds like"
+// references (disambiguation pages, overly generic terms, etc.)
+const WIKI_POOL_EXCLUDE = new Set(['Lists of musicians', 'Singer']);
+
+async function fetchOneWikipediaCategory(category) {
+  try {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=200&cmnamespace=0&format=json&origin=*`;
+    const res = await axios.get(url, { timeout: 6000 });
+    const members = res.data?.query?.categorymembers || [];
+    return members
+      .map(m => m.title)
+      .filter(name => !WIKI_POOL_EXCLUDE.has(name))
+      .filter(name => !name.startsWith('List of'));
+  } catch (err) {
+    console.warn(`Wikipedia category fetch failed for ${category}:`, err.message);
+    return [];
+  }
+}
+
+// Fetches and merges all categories configured for a genre into one
+// deduplicated, genuinely global pool of real artist names.
+async function fetchWikipediaGenrePool(genreFamily) {
+  const cacheKey = genreFamily;
+  const cached = wikiGenrePoolCache.get(cacheKey);
+  if (cached && (Date.now() - cached.fetchedAt) < WIKI_POOL_CACHE_HOURS * 60 * 60 * 1000) {
+    return cached.names;
+  }
+
+  const categories = WIKIPEDIA_GENRE_CATEGORIES[genreFamily];
+  if (!categories || categories.length === 0) return null;
+
+  const results = await Promise.all(categories.map(fetchOneWikipediaCategory));
+  const merged = [...new Set(results.flat())];
+
+  if (merged.length >= 10) {
+    wikiGenrePoolCache.set(cacheKey, { names: merged, fetchedAt: Date.now() });
+    console.log(`Wikipedia genre pool loaded for ${genreFamily}: ${merged.length} artists across ${categories.length} categories`);
+    return merged;
+  }
+  return null;
+}
+
+// Preload pools for the top genres on startup so the first real traces
+// in each genre don't have to wait on a live fetch.
+(async () => {
+  for (const genre of Object.keys(WIKIPEDIA_GENRE_CATEGORIES)) {
+    await fetchWikipediaGenrePool(genre);
+  }
+})();
+
 async function lastfmGet(method, params) {
   try {
     const response = await axios.get(LASTFM_BASE, {
@@ -52,7 +165,7 @@ async function trace(songData, spotifyData, productionSignals) {
   const allGenres  = [...genres, ...lastfmTags].map(g => g.toLowerCase());
   const genreFamily = detectGenreFamily(allGenres, artist.toLowerCase());
 
-  const influences = buildInfluences(similarArtists, artist, genreFamily, productionSignals);
+  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
   const humanContribution = assessHumanContribution(productionSignals);
@@ -62,17 +175,97 @@ async function trace(songData, spotifyData, productionSignals) {
   return { influences, genreLineage, culturalContext, humanContribution, artistRecognition, influenceScores };
 }
 
+// ── Wikipedia category-based artist pool expansion ─────────────────────────
+// Fetches real artist names from Wikipedia category pages to expand the
+// hand-picked AI_GENRE_INFLUENCES pools with hundreds of real names per
+// genre, refreshed periodically rather than relying only on a short
+// hardcoded list. Falls back silently to the hardcoded pool on any failure.
+
+const GENRE_WIKI_CATEGORIES = {
+  'rnb-soul':   'Category:American contemporary R&B singers',
+  'neo-soul':   'Category:Neo soul singers',
+  'trap-soul':  'Category:American contemporary R&B singers',
+  'hiphop':     'Category:American hip hop singers',
+  'pop':        'Category:American pop singers',
+  'amapiano':   'Category:South African house musicians',
+  'afrobeats':  'Category:Nigerian Afrobeats musicians',
+  'jazz':       'Category:American jazz singers',
+  'gospel':     'Category:American gospel singers',
+  'reggae':     'Category:Jamaican reggae musicians',
+  'rock':       'Category:American rock singers',
+  'electronic': 'Category:American electronic musicians',
+};
+
+const wikiCategoryCache = new Map();
+const WIKI_CATEGORY_CACHE_HOURS = 24;
+
+// Names that are disambiguation pages, lists, or non-person entries that
+// sometimes leak into category listings and should be filtered out.
+const WIKI_CATEGORY_NOISE = ['(disambiguation)', 'List of', 'Category:'];
+
+async function fetchWikipediaCategoryArtists(genreFamily) {
+  const categoryTitle = GENRE_WIKI_CATEGORIES[genreFamily];
+  if (!categoryTitle) return null;
+
+  const cached = wikiCategoryCache.get(genreFamily);
+  if (cached && (Date.now() - cached.fetchedAt) < WIKI_CATEGORY_CACHE_HOURS * 60 * 60 * 1000) {
+    return cached.names;
+  }
+
+  try {
+    const url = 'https://en.wikipedia.org/w/api.php';
+    const res = await axios.get(url, {
+      params: {
+        action: 'query',
+        list: 'categorymembers',
+        cmtitle: categoryTitle,
+        cmlimit: 100,
+        cmtype: 'page',
+        format: 'json'
+      },
+      headers: { 'User-Agent': 'Provenance/1.0 (provenance-trace.netlify.app)' },
+      timeout: 6000
+    });
+
+    const members = res.data?.query?.categorymembers || [];
+    const names = members
+      .map(m => m.title)
+      .filter(name => !WIKI_CATEGORY_NOISE.some(noise => name.includes(noise)));
+
+    if (names.length > 0) {
+      wikiCategoryCache.set(genreFamily, { names, fetchedAt: Date.now() });
+      console.log(`Wikipedia category loaded for ${genreFamily}: ${names.length} artists`);
+      return names;
+    }
+    return null;
+  } catch (err) {
+    console.warn(`Wikipedia category fetch failed for ${genreFamily}:`, err.message);
+    return null;
+  }
+}
+
 // Influences AI music is most likely trained on, by genre family
+// Pools are wider than 3 so buildInfluences can pick a varied, more
+// representative subset rather than always returning the same names.
 const AI_GENRE_INFLUENCES = {
   'rnb-soul': [
     { name: 'Aaliyah', type: 'Vocal influence', description: "Aaliyah's smooth R&B vocal style is heavily replicated in AI-generated R&B." },
     { name: 'Brandy', type: 'Vocal influence', description: "Brandy's layered harmonics and vocal texture are foundational to 90s R&B AI training data." },
-    { name: 'Mariah Carey', type: 'Vocal influence', description: "Mariah's melismatic runs and vocal range are among the most imitated in AI music." }
+    { name: 'Mariah Carey', type: 'Vocal influence', description: "Mariah's melismatic runs and vocal range are among the most imitated in AI music." },
+    { name: 'Alicia Keys', type: 'Vocal and production influence', description: "Alicia Keys' piano-driven soul sound and vocal phrasing are widely drawn on in AI R&B training data." },
+    { name: 'Whitney Houston', type: 'Vocal influence', description: "Whitney Houston's powerhouse vocal technique is among the most foundational references in AI vocal training." },
+    { name: 'Beyoncé', type: 'Vocal and production influence', description: "Beyoncé's vocal runs and contemporary R&B production are heavily present in AI training data." },
+    { name: 'Lira', type: 'Vocal influence', description: "Lira's South African soul vocal tradition is part of the broader R&B/soul lineage AI systems draw on." },
+    { name: 'Simphiwe Dana', type: 'Vocal and lyrical influence', description: "Simphiwe Dana's Afro-soul vocal style represents a South African branch of the soul tradition AI imitates." },
+    { name: 'Estelle', type: 'Vocal influence', description: "Estelle's British soul and R&B sound is part of the global soul tradition that AI training data draws on." }
   ],
   'neo-soul': [
     { name: 'Erykah Badu', type: 'Vocal and production influence', description: "Erykah Badu's neo soul aesthetic is deeply embedded in AI training data." },
     { name: 'Lauryn Hill', type: 'Vocal influence', description: "Lauryn Hill's vocal style and songwriting are foundational to neo soul AI imitation." },
-    { name: "D'Angelo", type: 'Production influence', description: "D'Angelo's production style defined neo soul and is widely replicated by AI." }
+    { name: "D'Angelo", type: 'Production influence', description: "D'Angelo's production style defined neo soul and is widely replicated by AI." },
+    { name: 'Alicia Keys', type: 'Vocal and production influence', description: "Alicia Keys' soulful piano-led style overlaps heavily with neo soul training references." },
+    { name: 'Olivia Dean', type: 'Vocal influence', description: "Olivia Dean's contemporary neo soul vocal tone is increasingly present in newer AI training data." },
+    { name: 'Jill Scott', type: 'Vocal and lyrical influence', description: "Jill Scott's conversational, jazz-inflected vocal delivery is a key reference point for neo soul AI imitation." }
   ],
   'trap-soul': [
     { name: 'Bryson Tiller', type: 'Vocal influence', description: 'Bryson Tiller defined trap soul — AI heavily imitates his whisper-to-belt vocal style.' },
@@ -108,7 +301,7 @@ const AI_GENERIC_INFLUENCES = [
   { name: 'Stevie Wonder', type: 'Compositional influence', description: "Stevie Wonder's melodic and harmonic sensibility runs through a huge amount of AI training data." }
 ];
 
-function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals) {
+async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals) {
   const similar    = similarArtists?.similarartists?.artist || [];
   const isAiTrack  = productionSignals.aiLikelihoodScore > 0.65;
   const weights    = [0.65, 0.20, 0.10];
@@ -154,9 +347,28 @@ function buildInfluences(similarArtists, currentArtist, genreFamily, productionS
     }));
   }
 
-  // AI tracks without audio match — show the real human artists AI likely learned this style from
+  // AI tracks without audio match — show real human artists AI likely learned this style from.
+  // Try the live Wikipedia category pool first (hundreds of real artists per genre),
+  // falling back to the small hand-picked pool if Wikipedia data isn't ready/available.
   if (isAiTrack) {
-    const influences = AI_GENRE_INFLUENCES[genreFamily] || AI_GENERIC_INFLUENCES;
+    const wikiPool = await fetchWikipediaGenrePool(genreFamily);
+
+    if (wikiPool && wikiPool.length >= 10) {
+      const pickedNames = pickThreeNamesFromPool(wikiPool, currentArtist);
+      const typeLabel = (AI_GENRE_INFLUENCES[genreFamily]?.[0]?.type) || guessInfluenceType(genreFamily);
+      return pickedNames.map((name, i) => ({
+        name,
+        estate: null,
+        hasEstate: false,
+        type: typeLabel,
+        description: `${name}'s work is part of the broader ${genreFamily.replace('-', ' ')} tradition that AI music systems are commonly trained on.`,
+        score: weights[i] || 0.05,
+        displayPercentage: [65, 20, 10][i] || 5
+      }));
+    }
+
+    const pool = AI_GENRE_INFLUENCES[genreFamily] || AI_GENERIC_INFLUENCES;
+    const influences = pickThreeFromPool(pool, currentArtist);
     return influences.map((inf, i) => ({
       name: inf.name,
       estate: null,
@@ -268,6 +480,56 @@ function normaliseGenres(g1, g2) {
 
 function matches(str, keywords) {
   return keywords.some(kw => str.includes(kw));
+}
+
+// Picks 3 entries from a pool of possible influences, deterministically
+// seeded by the artist name so the same artist always gets the same
+// result (consistency on re-trace) while different artists in the same
+// genre family get a varied subset rather than always the first 3.
+function pickThreeFromPool(pool, seedString) {
+  if (pool.length <= 3) return pool;
+
+  let hash = 0;
+  const seed = (seedString || '').toLowerCase();
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  const startIndex = hash % pool.length;
+  const picked = [];
+  for (let i = 0; i < 3; i++) {
+    picked.push(pool[(startIndex + i) % pool.length]);
+  }
+  return picked;
+}
+
+// Same deterministic-seed idea, but for a flat array of plain name strings
+// (used for the larger Wikipedia-sourced pools rather than the small
+// hand-picked objects pool above).
+function pickThreeNamesFromPool(namesPool, seedString) {
+  if (namesPool.length <= 3) return namesPool;
+
+  let hash = 0;
+  const seed = (seedString || '').toLowerCase();
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  // Spread picks further apart than 3 consecutive entries for more variety
+  // across a much larger pool, while staying deterministic per artist.
+  const step = Math.max(1, Math.floor(namesPool.length / 7));
+  const startIndex = hash % namesPool.length;
+  const picked = [];
+  const usedIndexes = new Set();
+  for (let i = 0; i < 3; i++) {
+    let idx = (startIndex + i * step) % namesPool.length;
+    while (usedIndexes.has(idx)) {
+      idx = (idx + 1) % namesPool.length;
+    }
+    usedIndexes.add(idx);
+    picked.push(namesPool[idx]);
+  }
+  return picked;
 }
 
 module.exports = { trace };
