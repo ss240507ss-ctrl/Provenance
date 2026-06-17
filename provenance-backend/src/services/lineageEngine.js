@@ -369,12 +369,9 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
 
   console.log(`Last.fm after filtering for [${currentArtist}]:`, JSON.stringify(reliableSimilar.map(a => ({ name: a.name, match: a.match }))));
 
-  // TEMPORARILY DISABLED: Last.fm similar-artists was returning
-  // genre/era-mismatched names (e.g. Creepy Nuts for Eve) that
-  // persisted through multiple fix attempts. Disabling this path
-  // entirely for now — falls through to the safe hand-picked
-  // ARTIST_DATABASE fallback below instead. Revisit with a clear
-  // head later; do not re-enable without testing.
+  // Kept disabled for tonight as a safety net while the real root cause
+  // (genre-detection ordering bug + missing hiphop entries) is the actual
+  // fix being shipped. Can re-enable once confirmed stable.
   if (false && reliableSimilar.length > 0) {
     return reliableSimilar.slice(0, 3).map((a, idx) => ({
       name: a.name,
@@ -419,9 +416,12 @@ function detectGenreFamily(genres, artist) {
   if (matches(g, ['afrobeats', 'afropop', 'afro', 'highlife', 'afrofusion', 'afroswing'])) return 'afrobeats';
   if (matches(g, ['neo soul', 'neosoul', 'alternative r&b', 'neo-soul'])) return 'neo-soul';
   if (matches(g, ['trap soul', 'trapsoul', 'rnb trap', 'melodic trap'])) return 'trap-soul';
+  // Hip-hop/rap is checked BEFORE the broader r&b/soul match, since rap
+  // artists are very often also tagged with r&b (crossover, hooks, features)
+  // and would otherwise always lose to the r&b-soul bucket below.
+  if (matches(g, ['hip hop', 'hip-hop', 'rap', 'trap', 'drill', 'grime'])) return 'hiphop';
   if (matches(g, ['r&b', 'rnb', 'soul', 'motown', 'funk'])) return 'rnb-soul';
   if (matches(g, ['gospel', 'christian', 'worship', 'spiritual'])) return 'gospel';
-  if (matches(g, ['hip hop', 'hip-hop', 'rap', 'trap', 'drill', 'grime'])) return 'hiphop';
   if (matches(g, ['jazz', 'bebop', 'swing', 'jazz fusion'])) return 'jazz';
   if (matches(g, ['blues', 'delta blues', 'chicago blues'])) return 'blues';
   if (matches(g, ['rock', 'alternative', 'indie rock', 'punk', 'metal'])) return 'rock';
