@@ -131,7 +131,7 @@ module.exports = [
     name: 'Burna Boy',
     estate: null,
     hasEstate: false,
-    genreFamilies: ['afrobeats', 'rnb-soul'],
+    genreFamilies: ['afrobeats'],
     influenceType: 'Vocal and production influence',
     influenceDescription: 'Contemporary Afrofusion — blending Afrobeats, dancehall, and R&B production aesthetics.',
     audioProfile: { energyRange: [0.55, 0.85], tempoRange: [95, 130], danceabilityRange: [0.70, 0.92] },
@@ -211,7 +211,7 @@ module.exports = [
     influenceDescription: 'Smooth, guitar-driven contemporary R&B vocal style that defined the genre\'s 2017-2020s resurgence.',
     audioProfile: { energyRange: [0.3, 0.7], tempoRange: [70, 110], danceabilityRange: [0.4, 0.75] },
     activePeriod: [2016, 2099],
-    baseInfluenceScore: 0.55,
+    baseInfluenceScore: 0.68,
     aiTrainingLikelihood: 0.75
   },
   {
@@ -223,7 +223,7 @@ module.exports = [
     influenceDescription: 'Genre-blurring, conversational alt-R&B vocal style that became one of the most replicated sounds of the late 2010s/2020s.',
     audioProfile: { energyRange: [0.35, 0.75], tempoRange: [70, 115], danceabilityRange: [0.45, 0.8] },
     activePeriod: [2012, 2099],
-    baseInfluenceScore: 0.58,
+    baseInfluenceScore: 0.68,
     aiTrainingLikelihood: 0.80
   },
   {
