@@ -23,9 +23,9 @@ const LASTFM_KEY  = process.env.LASTFM_API_KEY;
 const WIKIPEDIA_GENRE_CATEGORIES = {
   // Only genres directly verified to return clean, correctly genre-matched,
   // real human artist names are enabled here. Others (pop, gospel, jazz,
-  // rock, reggae, electronic, trap-soul) intentionally fall through to the
-  // small, already-correct hand-picked AI_GENRE_INFLUENCES pools below
-  // until each category is individually verified.
+  // rock, reggae, trap-soul) intentionally fall through to the small,
+  // already-correct hand-picked AI_GENRE_INFLUENCES pools below until each
+  // category is individually verified.
   'rnb-soul': [
     'Category:American contemporary R%26B singers',
     'Category:British soul',
@@ -44,6 +44,9 @@ const WIKIPEDIA_GENRE_CATEGORIES = {
   ],
   'hiphop': [
     'Category:American hip-hop musicians'
+  ],
+  'electronic': [
+    'Category:Electronic musicians'
   ]
 };
 
