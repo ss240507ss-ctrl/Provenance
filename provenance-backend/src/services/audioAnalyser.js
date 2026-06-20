@@ -28,7 +28,9 @@ const AI_NAME_SIGNALS = [
 // Claude/Google verification is confirmed to catch it automatically.
 // Key: artist name (lowercase) → confirmed cloned artist's real name.
 const MANUAL_CONFIRMED_VOICE_CLONES = {
-  'l$30': 'Michael Jackson'
+  // Add entries here as: 'artist name': 'real artist they clone'
+  // Removed L$30 entry — now relying on the dynamic Claude/Google/
+  // DuckDuckGo verification waterfall to catch this case instead.
 };
 
 const AI_WIKI_SIGNALS = [
@@ -375,9 +377,10 @@ async function analyseCore(resolved, songData) {
   // confirm a real registered artist while that artist's specific track
   // still uses an AI-cloned voice, e.g. L$30 cloning Michael Jackson).
   try {
-    const [claudeCheck, googleCheck] = await Promise.all([
+    const [claudeCheck, googleCheck, duckduckgoCheck] = await Promise.all([
       checkClaudeVerification(songData.artist, songData.title),
-      checkGoogleSearch(songData.artist)
+      checkGoogleSearch(songData.artist),
+      checkDuckDuckGo(songData.artist)
     ]);
 
     if (claudeCheck && claudeCheck.sourceFound && claudeCheck.confidence >= 0.6) {
@@ -410,13 +413,21 @@ async function analyseCore(resolved, songData) {
       }
     }
 
-    if (googleCheck?.found && googleCheck.aiKeywordHit) {
-      // Corroborating signal even without Claude's confirmation
-      const boosted = Math.min(0.85, fastResult.aiLikelihoodScore + 0.25);
-      return { ...fastResult, aiLikelihoodScore: boosted, method: fastResult.method + '+google-search-signal' };
+    // Combine Google + DuckDuckGo as corroborating signals — either one
+    // finding an AI keyword hit nudges the score up, since they're
+    // independent free/low-cost checks rather than the primary decision.
+    const googleHit     = googleCheck?.found && googleCheck.aiKeywordHit;
+    const duckduckgoHit = duckduckgoCheck?.found && duckduckgoCheck.aiKeywordHit;
+
+    if (googleHit || duckduckgoHit) {
+      const sources = [googleHit && 'google', duckduckgoHit && 'duckduckgo'].filter(Boolean);
+      // Slightly bigger boost if both independently agree
+      const boost = (googleHit && duckduckgoHit) ? 0.30 : 0.20;
+      const boosted = Math.min(0.85, fastResult.aiLikelihoodScore + boost);
+      return { ...fastResult, aiLikelihoodScore: boosted, method: fastResult.method + `+${sources.join('+')}-search-signal` };
     }
   } catch (err) {
-    console.warn('Claude/Google verification step failed:', err.message);
+    console.warn('Claude/Google/DuckDuckGo verification step failed:', err.message);
   }
 
   // Step 3: Fast path was already confident either way and Claude/Google found nothing — use it
@@ -661,6 +672,56 @@ async function checkGoogleSearch(artistName) {
     if (err.response?.data) {
       console.warn('Google API error details:', JSON.stringify(err.response.data));
     }
+    return null;
+  }
+}
+
+// ── DuckDuckGo Instant Answer API — free, no key required ──────────────────
+// Honest limitation: this is NOT a full search results API. DuckDuckGo only
+// returns data for well-known entities/topics it has an "instant answer"
+// for — most specific or obscure queries (like a single AI artist's name)
+// will come back empty. Treated here as a small bonus signal only, never
+// the deciding factor on its own.
+async function checkDuckDuckGo(artistName) {
+  if (!artistName) return null;
+
+  try {
+    const query = `${artistName} AI generated music artist`;
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1&skip_disambig=1`;
+    const res = await axios.get(url, { timeout: 5000 });
+
+    if (res.status !== 200 || !res.data) return { found: false };
+
+    const data = res.data;
+
+    // Gather any text DuckDuckGo gave us — abstract, definition, related topics
+    const textChunks = [];
+    if (data.AbstractText) textChunks.push(data.AbstractText);
+    if (data.Definition)  textChunks.push(data.Definition);
+    if (Array.isArray(data.RelatedTopics)) {
+      data.RelatedTopics.forEach(t => {
+        if (t.Text) textChunks.push(t.Text);
+      });
+    }
+
+    if (textChunks.length === 0) {
+      // Nothing returned — very common for obscure/newer artists, not an error
+      return { found: false };
+    }
+
+    const combinedText = textChunks.join(' ').toLowerCase();
+    const aiKeywordHit = ['ai-generated', 'ai generated', 'voice clone', 'suno', 'udio',
+                           'artificial intelligence', 'generative ai', 'ai music']
+      .some(kw => combinedText.includes(kw));
+
+    return {
+      found: true,
+      aiKeywordHit,
+      source: data.AbstractSource || null,
+      sourceUrl: data.AbstractURL || null
+    };
+  } catch (err) {
+    console.warn('DuckDuckGo check failed:', err.message);
     return null;
   }
 }
