@@ -12,6 +12,55 @@ const GENRE_LINEAGE   = require('../models/genreLineage');
 const LASTFM_BASE = 'https://ws.audioscrobbler.com/2.0/';
 const LASTFM_KEY  = process.env.LASTFM_API_KEY;
 
+// ── Gender detection via Wikipedia pronoun usage ────────────────────────────
+// Used to match influence selection to the traced artist's gender, e.g. a
+// male R&B artist gets male reference influences, not just whichever
+// names happen to be in the pool. Falls back to 'unknown' (mixed pool)
+// for non-binary artists, ambiguous names, or thin/missing Wikipedia pages
+// — never guesses when the signal isn't clear.
+const genderCache = new Map();
+
+async function detectArtistGender(artistName) {
+  if (!artistName) return 'unknown';
+
+  const cacheKey = artistName.toLowerCase().trim();
+  if (genderCache.has(cacheKey)) return genderCache.get(cacheKey);
+
+  try {
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artistName)}`;
+    const res = await axios.get(url, { timeout: 4000 });
+
+    if (res.status === 200 && res.data?.extract) {
+      const text = res.data.extract.toLowerCase();
+
+      // Count pronoun occurrences as whole words only, to avoid false
+      // matches inside other words (e.g. "the" containing "he").
+      const heCount  = (text.match(/\bhe\b|\bhim\b|\bhis\b/g)  || []).length;
+      const sheCount = (text.match(/\bshe\b|\bher\b|\bhers\b/g) || []).length;
+      const theyCount = (text.match(/\bthey\b|\bthem\b|\btheir\b/g) || []).length;
+
+      let gender = 'unknown';
+      // Require a clear majority, not just any mention, to avoid
+      // misreading a stray pronoun referring to someone else in the text.
+      if (heCount >= 2 && heCount > sheCount * 2 && heCount > theyCount) {
+        gender = 'male';
+      } else if (sheCount >= 2 && sheCount > heCount * 2 && sheCount > theyCount) {
+        gender = 'female';
+      } else if (theyCount >= 2 && theyCount > heCount && theyCount > sheCount) {
+        gender = 'nonbinary-or-group';
+      }
+
+      genderCache.set(cacheKey, gender);
+      return gender;
+    }
+  } catch (err) {
+    console.warn(`Gender detection failed for ${artistName}:`, err.message);
+  }
+
+  genderCache.set(cacheKey, 'unknown');
+  return 'unknown';
+}
+
 // ── Wikipedia category-based artist pools ─────────────────────────────────
 // Pulls real artist names from Wikipedia category pages, giving each genre
 // a much wider, GLOBAL pool of real human artists rather than a small
@@ -134,7 +183,7 @@ async function trace(songData, spotifyData, productionSignals) {
   const genres = normaliseGenres(songData.genres, spotifyData?.genres);
   const featuredArtists = songData.featuredArtists || [];
 
-  const [similarArtists, artistTags, trackTags, featuredArtistTags] = await Promise.all([
+  const [similarArtists, artistTags, trackTags, featuredArtistTags, artistGender] = await Promise.all([
     getSimilarArtists(artist),
     getArtistTags(artist),
     getTrackTags(artist, title),
@@ -143,7 +192,8 @@ async function trace(songData, spotifyData, productionSignals) {
     // primary artist/producer's own broader tags (e.g. KAYTRANADA is
     // tagged electronic/hip-hop/funk himself, but a track featuring
     // H.E.R. is genuinely an R&B track because of who's singing).
-    featuredArtists[0] ? getArtistTags(featuredArtists[0].name) : Promise.resolve(null)
+    featuredArtists[0] ? getArtistTags(featuredArtists[0].name) : Promise.resolve(null),
+    detectArtistGender(artist)
   ]);
 
   const lastfmTags = extractTags(artistTags, trackTags);
@@ -171,7 +221,7 @@ async function trace(songData, spotifyData, productionSignals) {
   }
 
   const featuredArtistNames = featuredArtists.map(a => a.name);
-  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year, featuredArtistNames);
+  const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year, featuredArtistNames, artistGender);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
   const humanContribution = assessHumanContribution(productionSignals);
@@ -311,12 +361,12 @@ const AI_GENERIC_INFLUENCES = [
 // literally performing on this exact track (primary or featured artist),
 // since a performer can't be their own "influence." Backfills with the
 // next-best candidates from the same source if any get removed.
-async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals, trackYear, featuredArtistNames = []) {
+async function buildInfluences(similarArtists, currentArtist, genreFamily, productionSignals, trackYear, featuredArtistNames = [], artistGender = 'unknown') {
   const excludedNames = new Set(
     [currentArtist, ...featuredArtistNames].filter(Boolean).map(n => n.toLowerCase().trim())
   );
 
-  const raw = await buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear);
+  const raw = await buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear, artistGender);
   const filtered = raw.filter(inf => !excludedNames.has((inf.name || '').toLowerCase().trim()));
 
   // If filtering removed someone, the remaining list might only have 1-2
@@ -330,7 +380,7 @@ async function buildInfluences(similarArtists, currentArtist, genreFamily, produ
   return filtered;
 }
 
-async function buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear) {
+async function buildInfluencesInternal(similarArtists, currentArtist, genreFamily, productionSignals, trackYear, artistGender = 'unknown') {
   const similar    = similarArtists?.similarartists?.artist || [];
   const isAiTrack  = productionSignals.aiLikelihoodScore > 0.65;
   const weights    = [0.65, 0.20, 0.10];
@@ -439,7 +489,23 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
   }
 
   // Fallback to hardcoded human artist database
-  const candidates = ARTIST_DATABASE.filter(a => a.genreFamilies.includes(genreFamily));
+  let candidates = ARTIST_DATABASE.filter(a => a.genreFamilies.includes(genreFamily));
+
+  // Match the traced artist's gender when it's confidently known — a male
+  // artist gets male reference influences, a female artist gets female
+  // ones, rather than always pulling from a mixed pool regardless of who's
+  // actually being traced. Only applies when detection was confident
+  // ('unknown' or 'nonbinary-or-group' keeps the full mixed pool, since
+  // guessing wrong is worse than not filtering at all).
+  if (artistGender === 'male' || artistGender === 'female') {
+    const genderFiltered = candidates.filter(a => a.gender === artistGender || !a.gender);
+    // Only apply the filter if it leaves a reasonable number of options —
+    // otherwise fall back to the full pool rather than starving the result.
+    if (genderFiltered.length >= 2) {
+      candidates = genderFiltered;
+    }
+  }
+
   if (candidates.length === 0) {
     return AI_GENERIC_INFLUENCES.map((inf, i) => ({
       name: inf.name, estate: null, hasEstate: false,

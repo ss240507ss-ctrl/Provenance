@@ -9,6 +9,7 @@
 module.exports = [
   {
     name: 'Michael Jackson',
+    gender: 'male',
     estate: 'Michael Jackson Estate',
     hasEstate: true,
     genreFamilies: ['rnb-soul', 'pop', 'funk'],
@@ -21,6 +22,7 @@ module.exports = [
   },
   {
     name: 'Quincy Jones',
+    gender: 'male',
     estate: 'Quincy Jones Estate',
     hasEstate: true,
     genreFamilies: ['rnb-soul', 'pop', 'jazz'],
@@ -33,6 +35,7 @@ module.exports = [
   },
   {
     name: 'Prince',
+    gender: 'male',
     estate: 'Prince Estate',
     hasEstate: true,
     genreFamilies: ['rnb-soul', 'funk', 'pop', 'rock'],
@@ -45,6 +48,7 @@ module.exports = [
   },
   {
     name: 'Aretha Franklin',
+    gender: 'female',
     estate: 'Aretha Franklin Estate',
     hasEstate: true,
     genreFamilies: ['gospel', 'rnb-soul', 'pop'],
@@ -57,6 +61,7 @@ module.exports = [
   },
   {
     name: 'Amy Winehouse',
+    gender: 'female',
     estate: 'Amy Winehouse Estate',
     hasEstate: true,
     genreFamilies: ['rnb-soul', 'jazz', 'pop'],
@@ -69,6 +74,7 @@ module.exports = [
   },
   {
     name: 'Jimi Hendrix',
+    gender: 'male',
     estate: 'Jimi Hendrix Estate',
     hasEstate: true,
     genreFamilies: ['blues', 'rock', 'psychedelic'],
@@ -81,6 +87,7 @@ module.exports = [
   },
   {
     name: 'Nina Simone',
+    gender: 'female',
     estate: 'Nina Simone Estate',
     hasEstate: true,
     genreFamilies: ['jazz', 'rnb-soul', 'gospel', 'classical'],
@@ -93,6 +100,7 @@ module.exports = [
   },
   {
     name: 'Miles Davis',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['jazz'],
@@ -105,6 +113,7 @@ module.exports = [
   },
   {
     name: 'Timbaland',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['rnb-soul', 'hiphop', 'pop'],
@@ -117,6 +126,7 @@ module.exports = [
   },
   {
     name: 'Fela Kuti',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['afrobeats', 'funk'],
@@ -129,6 +139,7 @@ module.exports = [
   },
   {
     name: 'Burna Boy',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['afrobeats'],
@@ -141,6 +152,7 @@ module.exports = [
   },
   {
     name: 'Billie Holiday',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['jazz', 'blues'],
@@ -153,6 +165,7 @@ module.exports = [
   },
   {
     name: 'James Brown',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['funk', 'rnb-soul', 'gospel'],
@@ -165,6 +178,7 @@ module.exports = [
   },
   {
     name: 'Whitney Houston',
+    gender: 'female',
     estate: 'Whitney Houston Estate',
     hasEstate: true,
     genreFamilies: ['rnb-soul', 'gospel', 'pop'],
@@ -177,6 +191,7 @@ module.exports = [
   },
   {
     name: 'Bob Marley',
+    gender: 'male',
     estate: 'Bob Marley Foundation',
     hasEstate: true,
     genreFamilies: ['reggae'],
@@ -189,6 +204,7 @@ module.exports = [
   },
   {
     name: 'Mahalia Jackson',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['gospel'],
@@ -204,6 +220,7 @@ module.exports = [
      modern (2010s-2020s) alt-R&B tracks, e.g. KAYTRANADA feat. H.E.R. ──── */
   {
     name: 'H.E.R.',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['rnb-soul', 'neo-soul'],
@@ -211,11 +228,12 @@ module.exports = [
     influenceDescription: 'Smooth, guitar-driven contemporary R&B vocal style that defined the genre\'s 2017-2020s resurgence.',
     audioProfile: { energyRange: [0.3, 0.7], tempoRange: [70, 110], danceabilityRange: [0.4, 0.75] },
     activePeriod: [2016, 2099],
-    baseInfluenceScore: 0.68,
+    baseInfluenceScore: 0.65,
     aiTrainingLikelihood: 0.75
   },
   {
     name: 'SZA',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['rnb-soul', 'neo-soul', 'trap-soul'],
@@ -223,11 +241,12 @@ module.exports = [
     influenceDescription: 'Genre-blurring, conversational alt-R&B vocal style that became one of the most replicated sounds of the late 2010s/2020s.',
     audioProfile: { energyRange: [0.35, 0.75], tempoRange: [70, 115], danceabilityRange: [0.45, 0.8] },
     activePeriod: [2012, 2099],
-    baseInfluenceScore: 0.68,
+    baseInfluenceScore: 0.65,
     aiTrainingLikelihood: 0.80
   },
   {
     name: 'Anderson .Paak',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['rnb-soul', 'funk', 'hiphop'],
@@ -235,11 +254,12 @@ module.exports = [
     influenceDescription: 'Funk-and-soul-rooted vocal delivery and live-instrumentation production style central to 2010s-2020s R&B crossover.',
     audioProfile: { energyRange: [0.5, 0.85], tempoRange: [85, 125], danceabilityRange: [0.6, 0.88] },
     activePeriod: [2014, 2099],
-    baseInfluenceScore: 0.55,
+    baseInfluenceScore: 0.65,
     aiTrainingLikelihood: 0.78
   },
   {
     name: 'Frank Ocean',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['rnb-soul', 'neo-soul'],
@@ -247,13 +267,105 @@ module.exports = [
     influenceDescription: 'Introspective, unconventional song structures and falsetto-driven delivery that reshaped contemporary alt-R&B.',
     audioProfile: { energyRange: [0.25, 0.6], tempoRange: [65, 105], danceabilityRange: [0.3, 0.65] },
     activePeriod: [2011, 2099],
-    baseInfluenceScore: 0.55,
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.75
+  },
+  {
+    name: 'Babyface',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul'],
+    influenceType: 'Vocal and production influence',
+    influenceDescription: 'Smooth, songwriting-driven R&B production style that defined the genre across the 90s and 2000s.',
+    audioProfile: { energyRange: [0.3, 0.65], tempoRange: [70, 110], danceabilityRange: [0.35, 0.7] },
+    activePeriod: [1989, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.75
+  },
+  {
+    name: 'Bryson Tiller',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'trap-soul'],
+    influenceType: 'Vocal influence',
+    influenceDescription: 'Whisper-to-belt vocal delivery that defined trap soul and remains widely referenced in contemporary male R&B.',
+    audioProfile: { energyRange: [0.35, 0.7], tempoRange: [70, 115], danceabilityRange: [0.4, 0.75] },
+    activePeriod: [2014, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.78
+  },
+  {
+    name: 'Daniel Caesar',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'neo-soul'],
+    influenceType: 'Vocal influence',
+    influenceDescription: 'Gospel-rooted, intimate vocal delivery central to the 2017-2020s alt-R&B resurgence.',
+    audioProfile: { energyRange: [0.25, 0.6], tempoRange: [65, 105], danceabilityRange: [0.3, 0.65] },
+    activePeriod: [2015, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.75
+  },
+  {
+    name: 'The Weeknd',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul'],
+    influenceType: 'Vocal and production influence',
+    influenceDescription: 'Dark, synth-driven contemporary R&B vocal style that became one of the most replicated male R&B sounds of the 2010s-2020s.',
+    audioProfile: { energyRange: [0.4, 0.8], tempoRange: [80, 120], danceabilityRange: [0.45, 0.8] },
+    activePeriod: [2010, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.85
+  },
+  {
+    name: 'Giveon',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul'],
+    influenceType: 'Vocal influence',
+    influenceDescription: 'Deep baritone, classic-soul-rooted vocal style that brought a distinct male voice to 2020s contemporary R&B.',
+    audioProfile: { energyRange: [0.25, 0.6], tempoRange: [65, 100], danceabilityRange: [0.3, 0.6] },
+    activePeriod: [2019, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.72
+  },
+  {
+    name: 'Usher',
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul'],
+    influenceType: 'Vocal and performance influence',
+    influenceDescription: 'Smooth, technically precise vocal runs that defined mainstream male R&B from the late 90s through the 2000s.',
+    audioProfile: { energyRange: [0.4, 0.8], tempoRange: [80, 120], danceabilityRange: [0.5, 0.85] },
+    activePeriod: [1994, 2099],
+    baseInfluenceScore: 0.65,
+    aiTrainingLikelihood: 0.78
+  },
+  {
+    name: "Brent Faiyaz",
+    gender: 'male',
+    estate: null,
+    hasEstate: false,
+    genreFamilies: ['rnb-soul', 'trap-soul'],
+    influenceType: 'Vocal influence',
+    influenceDescription: 'Hazy, understated vocal delivery central to the 2018-2020s alt-R&B sound favored by a wave of male artists.',
+    audioProfile: { energyRange: [0.3, 0.65], tempoRange: [65, 105], danceabilityRange: [0.35, 0.7] },
+    activePeriod: [2016, 2099],
+    baseInfluenceScore: 0.65,
     aiTrainingLikelihood: 0.75
   },
 
   /* ── Hip-hop / rap entries added to fix empty hiphop bucket ──────────── */
   {
     name: 'Lauryn Hill',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop', 'rnb-soul', 'neo-soul'],
@@ -266,6 +378,7 @@ module.exports = [
   },
   {
     name: 'Missy Elliott',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop', 'rnb-soul'],
@@ -278,6 +391,7 @@ module.exports = [
   },
   {
     name: 'Foxy Brown',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop'],
@@ -290,6 +404,7 @@ module.exports = [
   },
   {
     name: 'DMX',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop'],
@@ -302,6 +417,7 @@ module.exports = [
   },
   {
     name: 'Notorious B.I.G.',
+    gender: 'male',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop'],
@@ -314,6 +430,7 @@ module.exports = [
   },
   {
     name: 'Eve',
+    gender: 'female',
     estate: null,
     hasEstate: false,
     genreFamilies: ['hiphop'],
