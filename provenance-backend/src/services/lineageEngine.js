@@ -69,20 +69,37 @@ async function detectArtistGender(artistName) {
 // so a single American or single-country category never dominates the
 // result. Refreshes every 24 hours, falls back to the small hand-picked
 // AI_GENRE_INFLUENCES pools below if a live fetch fails or hasn't run yet.
-const WIKIPEDIA_GENRE_CATEGORIES = {
-  // Only genres directly verified to return clean, correctly genre-matched,
-  // real human artist names are enabled here. Others (pop, gospel, jazz,
-  // rock, reggae, trap-soul) intentionally fall through to the small,
-  // already-correct hand-picked AI_GENRE_INFLUENCES pools below until each
-  // category is individually verified.
+// ── Wikipedia source config ────────────────────────────────────────────────
+// Each genre maps to an array of Wikipedia sources.
+// Two types supported:
+//   'Category:Foo' → uses the categorymembers API (structured, fast)
+//   'List:Foo'     → uses the parse API on a List_of_... page (HTML extraction)
+// Both return plain name arrays, merged and deduplicated into one pool.
+
+const WIKIPEDIA_GENRE_SOURCES = {
   'rnb-soul': [
     'Category:American contemporary R%26B singers',
     'Category:British soul',
-    'Category:South African musicians'
+    'Category:South African musicians',
+    'List:List_of_R%26B_musicians',
+    'List:List_of_soul_musicians'
   ],
   'neo-soul': [
     'Category:American neo soul singers',
-    'Category:Neo soul singers'
+    'Category:Neo soul singers',
+    'Category:Neo soul groups'
+  ],
+  'hiphop': [
+    'Category:American hip-hop musicians',
+    'List:List_of_hip-hop_musicians',
+    'List:List_of_gangsta_rap_artists',
+    'List:List_of_West_Coast_hip-hop_artists',
+    'List:List_of_G-funk_artists_and_producers',
+    'List:List_of_alternative_hip-hop_artists',
+    'List:List_of_hip-hop_groups'
+  ],
+  'funk': [
+    'List:List_of_funk_musicians'
   ],
   'amapiano': [
     'Category:Amapiano musicians'
@@ -91,23 +108,74 @@ const WIKIPEDIA_GENRE_CATEGORIES = {
     'Category:Nigerian Afrobeats musicians',
     'Category:Ghanaian musicians'
   ],
-  'hiphop': [
-    'Category:American hip-hop musicians'
+  'reggae': [
+    'List:List_of_reggae_musicians',
+    'List:List_of_roots_reggae_artists',
+    'List:List_of_reggae_fusion_artists',
+    'List:List_of_dancehall_musicians',
+    'List:List_of_lovers_rock_artists',
+    'List:List_of_ska_musicians'
+  ],
+  'blues': [
+    'List:List_of_electric_blues_musicians',
+    'List:List_of_Chicago_blues_musicians',
+    'List:List_of_Delta_blues_musicians',
+    'List:List_of_Texas_blues_musicians',
+    'List:List_of_soul-blues_musicians'
+  ],
+  'jazz': [
+    'List:List_of_jazz_musicians',
+    'List:List_of_bebop_musicians',
+    'List:List_of_hard_bop_musicians',
+    'List:List_of_smooth_jazz_musicians',
+    'List:List_of_soul_jazz_musicians',
+    'List:List_of_big_band_musicians'
+  ],
+  'gospel': [
+    'List:List_of_gospel_musicians'
   ],
   'electronic': [
-    'Category:Electronic musicians'
+    'Category:Electronic musicians',
+    'List:List_of_house_music_artists',
+    'List:List_of_disco_artists',
+    'List:List_of_trip_hop_artists',
+    'List:List_of_ambient_music_artists'
+  ],
+  'rock': [
+    'List:List_of_alternative_country_musicians'
+  ],
+  'folk-country': [
+    'List:List_of_country_music_performers',
+    'List:List_of_folk_musicians',
+    'List:List_of_bluegrass_musicians',
+    'List:List_of_outlaw_country_artists'
+  ],
+  'latin': [
+    'List:List_of_Latin_pop_artists',
+    'List:List_of_reggaeton_musicians',
+    'List:List_of_Latin_trap_musicians'
+  ],
+  'pop': [
+    'List:List_of_dance-pop_artists',
+    'List:List_of_indie_pop_artists'
   ]
 };
+
+// Keep old name as alias so nothing else breaks
+const WIKIPEDIA_GENRE_CATEGORIES = WIKIPEDIA_GENRE_SOURCES;
 
 const wikiGenrePoolCache = new Map();
 const WIKI_POOL_CACHE_HOURS = 24;
 
-// Names that show up in these categories but aren't useful as "sounds like"
-// references (disambiguation pages, overly generic terms, etc.)
-const WIKI_POOL_EXCLUDE = new Set(['Lists of musicians', 'Singer']);
+const WIKI_POOL_EXCLUDE = new Set([
+  'Lists of musicians', 'Singer', 'Musician', 'Musical group',
+  'Music of', 'List of', 'Index of'
+]);
 
-async function fetchOneWikipediaCategory(category) {
+// Fetch from a Category: page using the structured categorymembers API
+async function fetchOneWikipediaCategory(source) {
   try {
+    const category = source.replace(/^Category:/, 'Category:');
     const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=200&cmnamespace=0&format=json&origin=*`;
     const res = await axios.get(url, { timeout: 6000 });
     const members = res.data?.query?.categorymembers || [];
@@ -116,12 +184,41 @@ async function fetchOneWikipediaCategory(category) {
       .filter(name => !WIKI_POOL_EXCLUDE.has(name))
       .filter(name => !name.startsWith('List of'));
   } catch (err) {
-    console.warn(`Wikipedia category fetch failed for ${category}:`, err.message);
+    console.warn(`Wikipedia category fetch failed for ${source}:`, err.message);
     return [];
   }
 }
 
-// Fetches and merges all categories configured for a genre into one
+// Fetch from a List: page by parsing its wikitext links via the parse API
+async function fetchOneWikipediaList(source) {
+  try {
+    const pageName = source.replace(/^List:/, '').replace(/_/g, ' ');
+    const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageName)}&prop=links&format=json&origin=*`;
+    const res = await axios.get(url, { timeout: 8000 });
+    const links = res.data?.parse?.links || [];
+    return links
+      .filter(l => l.ns === 0) // namespace 0 = article pages (actual people)
+      .map(l => l['*'])
+      .filter(name => name && !WIKI_POOL_EXCLUDE.has(name))
+      .filter(name => !name.startsWith('List of'))
+      .filter(name => !name.startsWith('Music of'))
+      .filter(name => name.length > 2 && name.length < 60);
+  } catch (err) {
+    console.warn(`Wikipedia list fetch failed for ${source}:`, err.message);
+    return [];
+  }
+}
+
+async function fetchOneWikipediaSource(source) {
+  if (source.startsWith('Category:')) {
+    return fetchOneWikipediaCategory(source);
+  } else if (source.startsWith('List:')) {
+    return fetchOneWikipediaList(source);
+  }
+  return [];
+}
+
+// Fetches and merges all sources configured for a genre into one
 // deduplicated, genuinely global pool of real artist names.
 async function fetchWikipediaGenrePool(genreFamily) {
   const cacheKey = genreFamily;
@@ -130,15 +227,15 @@ async function fetchWikipediaGenrePool(genreFamily) {
     return cached.names;
   }
 
-  const categories = WIKIPEDIA_GENRE_CATEGORIES[genreFamily];
-  if (!categories || categories.length === 0) return null;
+  const sources = WIKIPEDIA_GENRE_SOURCES[genreFamily];
+  if (!sources || sources.length === 0) return null;
 
-  const results = await Promise.all(categories.map(fetchOneWikipediaCategory));
+  const results = await Promise.all(sources.map(fetchOneWikipediaSource));
   const merged = [...new Set(results.flat())];
 
   if (merged.length >= 10) {
     wikiGenrePoolCache.set(cacheKey, { names: merged, fetchedAt: Date.now() });
-    console.log(`Wikipedia genre pool loaded for ${genreFamily}: ${merged.length} artists across ${categories.length} categories`);
+    console.log(`Wikipedia genre pool loaded for ${genreFamily}: ${merged.length} artists across ${sources.length} sources`);
     return merged;
   }
   return null;
@@ -147,7 +244,7 @@ async function fetchWikipediaGenrePool(genreFamily) {
 // Preload pools for the top genres on startup so the first real traces
 // in each genre don't have to wait on a live fetch.
 (async () => {
-  for (const genre of Object.keys(WIKIPEDIA_GENRE_CATEGORIES)) {
+  for (const genre of Object.keys(WIKIPEDIA_GENRE_SOURCES)) {
     await fetchWikipediaGenrePool(genre);
   }
 })();
