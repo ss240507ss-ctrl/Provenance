@@ -567,20 +567,18 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
   // Filter out low-confidence matches: Last.fm sometimes suggests
   // genre/era-mismatched artists with very weak similarity scores
   // (e.g. unrelated international artists for a 2000s American rap track).
-  console.log(`Last.fm raw similar artists for [${currentArtist}]:`, JSON.stringify(similar.map(a => ({ name: a.name, match: a.match }))));
-
-  const MIN_LASTFM_MATCH = 0.15;
+  // Last.fm similar artists — re-enabled now that genre-detection ordering
+  // is fixed. Using a higher confidence threshold (0.25) to filter out
+  // weak, genre-mismatched suggestions like the Creepy Nuts bug.
+  const MIN_LASTFM_MATCH = 0.25;
   const reliableSimilar = similar.filter(a => {
     const matchScore = parseFloat(a.match);
-    return isNaN(matchScore) || matchScore >= MIN_LASTFM_MATCH;
+    if (isNaN(matchScore) || matchScore < MIN_LASTFM_MATCH) return false;
+    if (!a.name || a.name.length < 2) return false;
+    return true;
   });
 
-  console.log(`Last.fm after filtering for [${currentArtist}]:`, JSON.stringify(reliableSimilar.map(a => ({ name: a.name, match: a.match }))));
-
-  // Kept disabled for tonight as a safety net while the real root cause
-  // (genre-detection ordering bug + missing hiphop entries) is the actual
-  // fix being shipped. Can re-enable once confirmed stable.
-  if (false && reliableSimilar.length > 0) {
+  if (reliableSimilar.length > 0) {
     return reliableSimilar.slice(0, 3).map((a, idx) => ({
       name: a.name,
       estate: null,
