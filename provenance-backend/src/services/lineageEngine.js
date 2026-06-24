@@ -28,7 +28,7 @@ async function detectArtistGender(artistName) {
 
   try {
     const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artistName)}`;
-    const res = await axios.get(url, { timeout: 4000 });
+    const res = await axios.get(url, { timeout: 4000, headers: WIKI_HEADERS });
 
     if (res.status === 200 && res.data?.extract) {
       const text = res.data.extract.toLowerCase();
@@ -173,11 +173,18 @@ const WIKI_POOL_EXCLUDE = new Set([
 ]);
 
 // Fetch from a Category: page using the structured categorymembers API
+// Wikipedia requires a descriptive User-Agent header for API requests
+// from automated/server-side clients — without it, requests from datacenter
+// IPs get blocked with 403. This follows Wikipedia's bot policy guidelines.
+const WIKI_HEADERS = {
+  'User-Agent': 'Provenance/1.0 (https://provenance-trace.netlify.app; music-transparency-tool) axios/node'
+};
+
 async function fetchOneWikipediaCategory(source) {
   try {
     const category = source.replace(/^Category:/, 'Category:');
-    const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=200&cmnamespace=0&format=json&origin=*`;
-    const res = await axios.get(url, { timeout: 6000 });
+    const url = `https://en.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=200&cmnamespace=0&format=json`;
+    const res = await axios.get(url, { timeout: 8000, headers: WIKI_HEADERS });
     const members = res.data?.query?.categorymembers || [];
     return members
       .map(m => m.title)
@@ -193,11 +200,11 @@ async function fetchOneWikipediaCategory(source) {
 async function fetchOneWikipediaList(source) {
   try {
     const pageName = source.replace(/^List:/, '').replace(/_/g, ' ');
-    const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageName)}&prop=links&format=json&origin=*`;
-    const res = await axios.get(url, { timeout: 8000 });
+    const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageName)}&prop=links&format=json`;
+    const res = await axios.get(url, { timeout: 10000, headers: WIKI_HEADERS });
     const links = res.data?.parse?.links || [];
     return links
-      .filter(l => l.ns === 0) // namespace 0 = article pages (actual people)
+      .filter(l => l.ns === 0)
       .map(l => l['*'])
       .filter(name => name && !WIKI_POOL_EXCLUDE.has(name))
       .filter(name => !name.startsWith('List of'))

@@ -77,10 +77,12 @@ async function loadAiBlocklist() {
 loadAiBlocklist();
 
 // ── Wikipedia ─────────────────────────────────────────────────────────────
+const WIKI_UA = { 'User-Agent': 'Provenance/1.0 (https://provenance-trace.netlify.app; music-transparency-tool) axios/node' };
+
 async function checkWikipedia(artistName) {
   try {
     const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artistName)}`;
-    const res = await axios.get(url, { timeout: 4000 });
+    const res = await axios.get(url, { timeout: 4000, headers: WIKI_UA });
     if (res.status === 200 && res.data) {
       const text = ((res.data.extract || '') + ' ' + (res.data.description || '')).toLowerCase();
       const isAiConfirmed = AI_WIKI_SIGNALS.some(sig => text.includes(sig));
