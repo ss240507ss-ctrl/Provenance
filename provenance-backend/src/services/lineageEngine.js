@@ -197,6 +197,53 @@ async function fetchOneWikipediaCategory(source) {
 }
 
 // Fetch from a List: page by parsing its wikitext links via the parse API
+// Parenthetical qualifiers that indicate the link is NOT a person/musician
+const NON_ARTIST_QUALIFIERS = new Set([
+  'newspaper', 'magazine', 'journal', 'publication', 'album', 'song',
+  'film', 'movie', 'TV series', 'television series', 'radio station',
+  'record label', 'music label', 'band', 'group', 'orchestra', 'ensemble',
+  'collective', 'quartet', 'trio', 'duo', 'company', 'organization',
+  'organization', 'festival', 'award', 'chart', 'show', 'program',
+  'programme', 'channel', 'network', 'website', 'book', 'novel'
+]);
+
+function isLikelyArtistName(name) {
+  if (!name || name.length < 2 || name.length > 60) return false;
+
+  // Reject names with slashes (e.g. "Shinji Hosoe/Ayako Saso/Takayuki Aihara")
+  if (name.includes('/')) return false;
+
+  // Reject names starting with "The " followed by a non-person noun
+  // e.g. "The State (newspaper)", "The Guardian (newspaper)"
+  const parenMatch = name.match(/\(([^)]+)\)$/);
+  if (parenMatch) {
+    const qualifier = parenMatch[1].toLowerCase();
+    for (const nonArtist of NON_ARTIST_QUALIFIERS) {
+      if (qualifier.includes(nonArtist.toLowerCase())) return false;
+    }
+  }
+
+  // Reject obvious non-person pages
+  if (name.startsWith('List of')) return false;
+  if (name.startsWith('Music of')) return false;
+  if (name.startsWith('History of')) return false;
+  if (name.startsWith('Category:')) return false;
+  if (name.startsWith('File:')) return false;
+  if (name.startsWith('Template:')) return false;
+
+  // Reject names that look like publications or institutions
+  // (contain words strongly associated with non-people)
+  const lowerName = name.toLowerCase();
+  const institutionWords = ['records', 'studios', 'entertainment', 'productions',
+                             'management', 'agency', 'foundation', 'institute',
+                             'university', 'college', 'school', 'department'];
+  if (institutionWords.some(w => lowerName.endsWith(w) || lowerName.endsWith(w + 's'))) {
+    return false;
+  }
+
+  return true;
+}
+
 async function fetchOneWikipediaList(source) {
   try {
     const pageName = source.replace(/^List:/, '').replace(/_/g, ' ');
@@ -206,10 +253,8 @@ async function fetchOneWikipediaList(source) {
     return links
       .filter(l => l.ns === 0)
       .map(l => l['*'])
-      .filter(name => name && !WIKI_POOL_EXCLUDE.has(name))
-      .filter(name => !name.startsWith('List of'))
-      .filter(name => !name.startsWith('Music of'))
-      .filter(name => name.length > 2 && name.length < 60);
+      .filter(name => !WIKI_POOL_EXCLUDE.has(name))
+      .filter(name => isLikelyArtistName(name));
   } catch (err) {
     console.warn(`Wikipedia list fetch failed for ${source}:`, err.message);
     return [];
