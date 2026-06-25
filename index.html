@@ -950,33 +950,15 @@ button { font-family:var(--fu); cursor:pointer; }
       <!-- Layer 4 -->
       <div class="layer">
         <div class="sec" style="padding:0;margin-bottom:10px">Creative Lineage</div>
-        <div class="lineage-card">
-          <div class="lineage-row" onclick="openArticle('mj')">
-            <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(109,40,217,.12),rgba(162,28,175,.08))">🕺</div>
-            <div class="lr-body">
-              <div class="lr-type">Vocal influence</div>
-              <div class="lr-name">Michael Jackson</div>
-              <div class="lr-desc">Phrasing, breath patterns, and emotional delivery reflect Jackson's 1980s recordings.</div>
-            </div>
-            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-          </div>
-          <div class="lineage-row" onclick="openArticle('quincy')">
-            <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(180,83,9,.1),rgba(180,83,9,.05))">🎼</div>
-            <div class="lr-body">
-              <div class="lr-type">Production influence</div>
-              <div class="lr-name">Quincy Jones</div>
-              <div class="lr-desc">Orchestral arrangement and layered harmonics carry Jones' production signature.</div>
-            </div>
-            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-          </div>
-          <div class="lineage-row" onclick="openArticle('gospel')">
+        <div class="lineage-card" id="lineage-card">
+          <div id="lineage-influences"></div>
+          <div id="lineage-genre-row" class="lineage-row" style="display:none">
             <div class="lr-emoji" style="background:linear-gradient(135deg,rgba(162,28,175,.1),rgba(162,28,175,.05))">🎵</div>
             <div class="lr-body">
               <div class="lr-type">Genre lineage</div>
-              <div class="lr-name">Pop, Funk, R&B, Gospel</div>
-              <div class="lr-desc">1980s American popular music rooted in Black Gospel and Soul traditions.</div>
+              <div class="lr-name" id="lineage-genre-name"></div>
+              <div class="lr-desc" id="lineage-genre-desc"></div>
             </div>
-            <div class="lr-arr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
           </div>
           <div class="lineage-note">This section documents influence. It does not imply ownership or infringement.</div>
         </div>
@@ -1010,13 +992,9 @@ button { font-family:var(--fu); cursor:pointer; }
           <svg class="coll-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="coll-body">
-          <div class="tech-inner">
-            <div class="tech-row"><div class="tech-lbl">MJ Estate — vocal influence</div><div class="tech-bar"><div class="tech-fill" style="width:72%"></div></div><div class="tech-val">72%</div></div>
-            <div class="tech-row"><div class="tech-lbl">Quincy Jones — production</div><div class="tech-bar"><div class="tech-fill" style="width:11%"></div></div><div class="tech-val">11%</div></div>
-            <div class="tech-row"><div class="tech-lbl">Prompt Author</div><div class="tech-bar"><div class="tech-fill" style="width:9%"></div></div><div class="tech-val">9%</div></div>
-            <div class="tech-row"><div class="tech-lbl">AI Model (Suno v4)</div><div class="tech-bar"><div class="tech-fill" style="width:8%"></div></div><div class="tech-val">8%</div></div>
-            <div class="tech-row"><div class="tech-lbl">Model confidence</div><div class="tech-bar"><div class="tech-fill" style="width:84%"></div></div><div class="tech-val">84%</div></div>
-            <div class="tech-row"><div class="tech-lbl">Signal confidence</div><div class="tech-bar"><div class="tech-fill" style="width:79%"></div></div><div class="tech-val">79%</div></div>
+          <div class="tech-inner" id="tech-inner">
+            <div class="tech-row"><div class="tech-lbl">Model confidence</div><div class="tech-bar"><div class="tech-fill" id="tech-model-conf" style="width:0%"></div></div><div class="tech-val" id="tech-model-conf-val">—</div></div>
+            <div class="tech-row"><div class="tech-lbl">Signal confidence</div><div class="tech-bar"><div class="tech-fill" id="tech-signal-conf" style="width:0%"></div></div><div class="tech-val" id="tech-signal-conf-val">—</div></div>
           </div>
         </div>
       </div>
@@ -1656,7 +1634,76 @@ function renderResult(data) {
     document.querySelector('.justice-text').innerHTML = data.artistRecognition.message;
   }
 
+  renderCreativeLineage(data.creativeLineage);
+
+  const tech = data.technical;
+  if (tech) {
+    const modelPct = Math.round((tech.modelConfidence || 0) * 100);
+    const signalPct = Math.round((tech.signalConfidence || 0) * 100);
+    const mc = document.getElementById('tech-model-conf');
+    const mcv = document.getElementById('tech-model-conf-val');
+    const sc = document.getElementById('tech-signal-conf');
+    const scv = document.getElementById('tech-signal-conf-val');
+    if (mc) mc.style.width = modelPct + '%';
+    if (mcv) mcv.textContent = modelPct + '%';
+    if (sc) sc.style.width = signalPct + '%';
+    if (scv) scv.textContent = signalPct + '%';
+  }
+
+  renderContributors(data.contributors);
   saveTraceToHistory(data);
+}
+
+function renderCreativeLineage(lineage) {
+  const container = document.getElementById('lineage-influences');
+  const genreRow  = document.getElementById('lineage-genre-row');
+  const genreName = document.getElementById('lineage-genre-name');
+  const genreDesc = document.getElementById('lineage-genre-desc');
+  if (!container) return;
+
+  const influences    = lineage?.influences    || [];
+  const genreLineage  = lineage?.genreLineage  || [];
+  const culturalContext = lineage?.culturalContext;
+
+  const emojiMap = {
+    'vocal': '\ud83c\udfa4', 'production': '\ud83c\udfbc', 'guitar': '\ud83c\udfb8',
+    'rhythmic': '\ud83e\udd41', 'compositional': '\ud83c\udfb9', 'lyrical': '\u270d\ufe0f',
+    'cultural': '\ud83c\udf0d', 'confirmed': '\u26a0\ufe0f', 'default': '\ud83c\udfb5'
+  };
+
+  function pickEmoji(type) {
+    if (!type) return emojiMap.default;
+    const t = type.toLowerCase();
+    for (const [key, emoji] of Object.entries(emojiMap)) {
+      if (t.includes(key)) return emoji;
+    }
+    return emojiMap.default;
+  }
+
+  container.innerHTML = influences.map(inf => {
+    const emoji = pickEmoji(inf.type);
+    const isConfirmedClone = inf.type?.toLowerCase().includes('confirmed');
+    const bgStyle = isConfirmedClone
+      ? 'background:linear-gradient(135deg,rgba(220,38,38,.12),rgba(220,38,38,.06))'
+      : 'background:linear-gradient(135deg,rgba(109,40,217,.12),rgba(162,28,175,.08))';
+    return `
+      <div class="lineage-row">
+        <div class="lr-emoji" style="${bgStyle}">${emoji}</div>
+        <div class="lr-body">
+          <div class="lr-type">${inf.type || 'Influence'}</div>
+          <div class="lr-name">${inf.name}</div>
+          <div class="lr-desc">${inf.description || ''}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (genreLineage.length > 0 || culturalContext) {
+    genreRow.style.display = 'flex';
+    genreName.textContent = genreLineage.map(g => g.name || g).join(', ');
+    genreDesc.textContent = culturalContext || '';
+  } else {
+    genreRow.style.display = 'none';
+  }
 }
 
 /* ════════════════════════
