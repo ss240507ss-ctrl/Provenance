@@ -299,7 +299,7 @@ async function verifyArtist(artistName, spotifyArtistId) {
 
   if (wiki !== null) {
     totalSources++;
-    if (wiki.found && wiki.isMusicArtist) { humanSignals++; sources.push('wikipedia'); }
+    if (wiki.found && wiki.isMusicArtist) { humanSignals += 1.5; sources.push('wikipedia'); }
   }
   if (musicbrainz !== null) {
     totalSources++;
@@ -307,12 +307,16 @@ async function verifyArtist(artistName, spotifyArtistId) {
   }
   if (lastfm !== null) {
     totalSources++;
-    if (lastfm.found && lastfm.isEstablished) { humanSignals++; sources.push('lastfm'); }
-    else if (lastfm.found && lastfm.listeners > 0) { humanSignals += 0.5; sources.push('lastfm-low'); }
+    if (lastfm.found && lastfm.isEstablished) { humanSignals += 1; sources.push('lastfm'); }
+    else if (lastfm.found && lastfm.listeners > 0) { humanSignals += 0.3; sources.push('lastfm-low'); }
   }
   if (discogs !== null) {
     totalSources++;
-    if (discogs.found) { humanSignals += 1.5; sources.push('discogs'); } // Physical releases = strong signal
+    // Discogs physical release is a strong signal but only when combined
+    // with at least one other meaningful source — a Discogs page alone or
+    // paired only with a very-low-listener Last.fm count is not enough,
+    // since new AI artist projects can accumulate both relatively easily.
+    if (discogs.found) { humanSignals += 1; sources.push('discogs'); }
   }
   if (genius !== null) {
     totalSources++;
@@ -323,8 +327,11 @@ async function verifyArtist(artistName, spotifyArtistId) {
   }
 
   let isHuman = false, confidence = 0;
-  if (humanSignals >= 2)      { isHuman = true; confidence = Math.min(0.95, 0.60 + humanSignals * 0.08); }
-  else if (humanSignals >= 1) { isHuman = true; confidence = 0.65; }
+  // Require a stronger signal to confirm human — 3+ means at least two
+  // meaningful sources agree, not just one weak pairing.
+  if (humanSignals >= 3)      { isHuman = true; confidence = Math.min(0.95, 0.60 + humanSignals * 0.08); }
+  else if (humanSignals >= 2) { isHuman = true; confidence = 0.60; }
+  else if (humanSignals >= 1) { isHuman = false; confidence = 0.40; } // Weak signal — treat as uncertain
   else if (totalSources >= 3 && humanSignals === 0) { confidence = 0.55; }
 
   const result = { isHuman, isAi: false, confidence, sources, humanSignals, totalSources };
@@ -690,7 +697,7 @@ async function checkDuckDuckGo(artistName) {
   try {
     const query = `${artistName} AI generated music artist`;
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1&skip_disambig=1`;
-    const res = await axios.get(url, { timeout: 5000 });
+    const res = await axios.get(url, { timeout: 10000 });
 
     if (res.status !== 200 || !res.data) return { found: false };
 
