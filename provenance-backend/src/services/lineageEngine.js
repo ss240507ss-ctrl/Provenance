@@ -180,6 +180,14 @@ const WIKI_HEADERS = {
   'User-Agent': 'Provenance/1.0 (https://provenance-trace.netlify.app; music-transparency-tool) axios/node'
 };
 
+const MUSIC_KEYWORDS = [
+  'singer', 'rapper', 'musician', 'artist', 'band', 'dj', 'producer',
+  'songwriter', 'vocalist', 'composer', 'discography', 'album', 'record',
+  'hip hop', 'r&b', 'pop', 'jazz', 'soul', 'reggae', 'afrobeats', 'amapiano',
+  'gospel', 'blues', 'rock', 'electronic', 'dancehall', 'music group',
+  'recording artist'
+];
+
 async function fetchOneWikipediaCategory(source) {
   try {
     const category = source.replace(/^Category:/, 'Category:');
@@ -615,6 +623,10 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
   // Last.fm similar artists — re-enabled now that genre-detection ordering
   // is fixed. Using a higher confidence threshold (0.25) to filter out
   // weak, genre-mismatched suggestions like the Creepy Nuts bug.
+  // Additionally cross-checks each suggestion against Wikipedia — a real,
+  // well-known influence almost always has a Wikipedia article. Names with
+  // no Wikipedia presence (e.g. obscure video game composers that Last.fm
+  // associates with AI-sounding music) are rejected before being shown.
   const MIN_LASTFM_MATCH = 0.25;
   const reliableSimilar = similar.filter(a => {
     const matchScore = parseFloat(a.match);
@@ -624,15 +636,39 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
   });
 
   if (reliableSimilar.length > 0) {
-    return reliableSimilar.slice(0, 3).map((a, idx) => ({
-      name: a.name,
-      estate: null,
-      hasEstate: false,
-      type: guessInfluenceType(genreFamily),
-      description: `${a.name} shares strong sonic and stylistic characteristics with this track.`,
-      score: weights[idx] || 0.05,
-      displayPercentage: [65, 20, 10][idx] || 5
-    }));
+    // Validate each suggestion has a Wikipedia presence before using it.
+    // Run checks in parallel for speed, keeping those that pass.
+    const validated = await Promise.all(
+      reliableSimilar.slice(0, 6).map(async a => {
+        try {
+          const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(a.name)}`;
+          const res = await axios.get(url, { timeout: 4000, headers: WIKI_HEADERS });
+          if (res.status === 200 && res.data?.extract) {
+            const text = res.data.extract.toLowerCase();
+            const isMusicRelated = MUSIC_KEYWORDS.some(kw => text.includes(kw));
+            return isMusicRelated ? a : null;
+          }
+          return null;
+        } catch {
+          return null; // No Wikipedia article — reject this suggestion
+        }
+      })
+    );
+
+    const confirmed = validated.filter(Boolean).slice(0, 3);
+    if (confirmed.length > 0) {
+      return confirmed.map((a, idx) => ({
+        name: a.name,
+        estate: null,
+        hasEstate: false,
+        type: guessInfluenceType(genreFamily),
+        description: `${a.name} shares strong sonic and stylistic characteristics with this track.`,
+        score: weights[idx] || 0.05,
+        displayPercentage: [65, 20, 10][idx] || 5
+      }));
+    }
+    // All Last.fm suggestions failed Wikipedia validation — fall through
+    // to the curated database pool below
   }
 
   // Fallback to hardcoded human artist database
