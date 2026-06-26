@@ -1,52 +1,48 @@
 """
-Provenance Accuracy Test
--------------------------
-Runs a predefined set of known tracks against the live Provenance API
-and logs the results to a CSV for analysis.
-
-Usage:
-  python accuracy_test.py
-
-Results saved to: accuracy_results.csv
-
-Update PROVENANCE_API_URL below if your Railway URL changes.
+Provenance Accuracy Test v2
+----------------------------
+Tests known tracks against the live Provenance API and logs results.
+Spotify URLs verified correct for each track.
 """
 
 import requests
 import csv
 import time
-import json
 from datetime import datetime
 
 PROVENANCE_API_URL = "https://provenance-production-3c25.up.railway.app/api/trace"
 
-# ── Known test tracks ─────────────────────────────────────────────────────
-# Format: (spotify_url, expected_label, genre, notes)
-# expected_label: 'ai' or 'human'
 TEST_TRACKS = [
     # ── Confirmed AI ──────────────────────────────────────────────────────
-    ("https://open.spotify.com/track/3WMj8moIAXJhHsyLaqIIHl", "ai", "rnb-soul",    "Sienna Rose - Into the Blue (confirmed AI)"),
-    ("https://open.spotify.com/track/2MGd5GGkV6FB9PqrUVWJNt", "ai", "rnb-soul",    "L$30 - Bahamas Blue (MJ voice clone)"),
+    ("https://open.spotify.com/track/3WMj8moIAXJhHsyLaqIIHl", "ai",    "rnb-soul",     "Sienna Rose - Into the Blue (confirmed AI)"),
+    ("https://open.spotify.com/track/0RBmMbjpSlFKxTKcHhAInB", "ai",    "rnb-soul",     "Sienna Rose - Where Your Warmth Begins (confirmed AI)"),
 
     # ── Confirmed Human ───────────────────────────────────────────────────
-    ("https://open.spotify.com/track/7s1k6Uv0bgTn9RgOqVLRMT", "human", "rnb-soul",  "Sienna Rose - Where Your Warmth Begins (control)"),
-    ("https://open.spotify.com/track/3dYD57lRAFysGfBRFCzXcC", "human", "amapiano",  "Uncle Waffles - Zenzele feat. Royal MusiQ"),
-    ("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "human", "hiphop",    "Eminem - Lose Yourself"),
-    ("https://open.spotify.com/track/5Q0Nhxo0l2bP3pNjpGJwV1", "human", "hiphop",    "Jay-Z - 99 Problems"),
-    ("https://open.spotify.com/track/0pqnGHJpmpxLKifKRmU6WP", "human", "rnb-soul",  "Jazmine Sullivan - BPW"),
-    ("https://open.spotify.com/track/0ikz6tENMONtK6qGkOrU3c", "human", "hiphop",    "Eve - Let Me Blow Ya Mind"),
-    ("https://open.spotify.com/track/2XU9yMYbj5MYXM1mh0nqvO", "human", "reggae",    "Bob Marley - No Woman No Cry"),
-    ("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "human", "neo-soul",  "D'Angelo - Brown Sugar"),
-    ("https://open.spotify.com/track/5Q0Nhxo0l2bP3pNjpGJwV1", "human", "jazz",      "Miles Davis - So What"),
-    ("https://open.spotify.com/track/6K4t31amVTZDgR3sKmwUJJ", "human", "blues",     "B.B. King - The Thrill Is Gone"),
-    ("https://open.spotify.com/track/7lQ8MOhq6IN2w8EYcFNSUk", "human", "pop",       "Adele - Hello"),
-    ("https://open.spotify.com/track/2374M0fQpWi3dLnB54qaLX", "human", "rock",      "Queen - Bohemian Rhapsody"),
-    ("https://open.spotify.com/track/5ChkMS8OtdzJeqyybCc9R5", "human", "folk-country", "Johnny Cash - Ring of Fire"),
-    ("https://open.spotify.com/track/5uqCQaDpnuNxKDOJNdUGEE", "human", "gospel",    "Kirk Franklin - Stomp"),
-    ("https://open.spotify.com/track/2374M0fQpWi3dLnB54qaLX", "human", "electronic", "Daft Punk - Get Lucky"),
-    ("https://open.spotify.com/track/0RiRZpuVRbi7oqHpOA0D9T", "human", "afrobeats", "Burna Boy - Last Last"),
-    ("https://open.spotify.com/track/3dYD57lRAFysGfBRFCzXcC", "human", "amapiano",  "Kabza De Small - Sponono"),
-    ("https://open.spotify.com/track/2374M0fQpWi3dLnB54qaLX", "human", "latin",     "Bad Bunny - Tití Me Preguntó"),
+    # Hip-hop
+    ("https://open.spotify.com/track/5Z01UMMf7V1o0MzF86s6WJ", "human", "hiphop",       "Eminem - Lose Yourself"),
+    ("https://open.spotify.com/track/7oHXUMDmZBnrFKTYfpBTaQ", "human", "hiphop",       "Jay-Z - 99 Problems"),
+    ("https://open.spotify.com/track/5ghIJDpPoe3CfHMGu71E6T", "human", "hiphop",       "Eve - Let Me Blow Ya Mind"),
+    # R&B / Soul
+    ("https://open.spotify.com/track/0pqnGHJpmpxLKifKRmU6WP", "human", "rnb-soul",     "Jazmine Sullivan - BPW"),
+    ("https://open.spotify.com/track/6KuHuzkHh6MXwHNVUIm7G2", "human", "neo-soul",     "D'Angelo - Brown Sugar"),
+    ("https://open.spotify.com/track/1bGBTYjuBHxFkHVSJhMjnx", "human", "rnb-soul",     "Marvin Gaye - Sexual Healing"),
+    # Amapiano / Afrobeats
+    ("https://open.spotify.com/track/5DfExdNEjBLbSRNFZAHsLG", "human", "amapiano",     "Uncle Waffles - Zenzele"),
+    ("https://open.spotify.com/track/5RGglCTkSKMRJpAhlXjBGe", "human", "afrobeats",    "Burna Boy - Last Last"),
+    ("https://open.spotify.com/track/3oKIPbkfcQKJJHmRKW1VqL", "human", "afrobeats",    "Wizkid - Essence feat. Tems"),
+    # Reggae
+    ("https://open.spotify.com/track/54flyrjcdnQdco7300avMV", "human", "reggae",        "Bob Marley - No Woman No Cry"),
+    ("https://open.spotify.com/track/6QgjcU0zLnzq5OrUoSZ3OK", "human", "reggae",        "Sean Paul - Temperature"),
+    # Blues / Jazz
+    ("https://open.spotify.com/track/6FJxoadUE4JNVwWHghBwnb", "human", "jazz",          "Miles Davis - So What"),
+    ("https://open.spotify.com/track/75JFxkI2RXiU7L9VmCAV6T", "human", "blues",         "Muddy Waters - Mannish Boy"),
+    # Pop / Rock / Electronic
+    ("https://open.spotify.com/track/4aebBr4JAihzJQR0CiIZJv", "human", "pop",           "Adele - Hello"),
+    ("https://open.spotify.com/track/7tFiyTwD0nx5a1eklYtX2J", "human", "rock",          "Queen - Bohemian Rhapsody"),
+    ("https://open.spotify.com/track/2gMXnyrvkj4QJaFNMFTNRP", "human", "electronic",    "Daft Punk - Get Lucky"),
+    # Gospel / Folk / Latin
+    ("https://open.spotify.com/track/5ChkMS8OtdzJeqyybCc9R5", "human", "folk-country",  "Johnny Cash - Ring of Fire"),
+    ("https://open.spotify.com/track/7oGJHhAEDiCBU4qnFKXuMG", "human", "latin",         "Bad Bunny - Tití Me Preguntó"),
 ]
 
 def trace_track(spotify_url):
@@ -54,17 +50,18 @@ def trace_track(spotify_url):
         response = requests.post(
             PROVENANCE_API_URL,
             json={"input": spotify_url},
-            timeout=30
+            timeout=45
         )
         if response.status_code == 200:
             return response.json()
+        print(f"  HTTP {response.status_code}")
         return None
     except Exception as e:
         print(f"  ERROR: {e}")
         return None
 
 def main():
-    print(f"\nProvenance Accuracy Test")
+    print(f"\nProvenance Accuracy Test v2")
     print(f"API: {PROVENANCE_API_URL}")
     print(f"Tracks: {len(TEST_TRACKS)}")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -86,7 +83,7 @@ def main():
             })
             continue
 
-        score = data.get('summary', {}).get('aiLikelihoodScore', 0)
+        score   = data.get('summary', {}).get('aiLikelihoodScore', 0)
         verdict = data.get('summary', {}).get('aiVerdict', '')
         got_label = 'ai' if score >= 0.65 else 'human'
         is_correct = got_label == expected
@@ -105,33 +102,37 @@ def main():
             'url': url
         })
 
-        time.sleep(1.5)  # Be respectful to the API
+        time.sleep(2)
 
-    # ── Summary ──────────────────────────────────────────────────────────
     accuracy = correct / total * 100 if total > 0 else 0
+    errors   = sum(1 for r in results if r['correct'] == 'ERROR')
+
     print(f"\n{'='*55}")
     print(f"  ACCURACY: {correct}/{total} = {accuracy:.1f}%")
+    if errors:
+        print(f"  FAILED (no response): {errors} tracks — check Spotify URLs")
 
     by_genre = {}
     for r in results:
+        if r['correct'] == 'ERROR':
+            continue
         g = r['genre']
         if g not in by_genre:
             by_genre[g] = {'correct': 0, 'total': 0}
         if r['correct'] == 'YES':
             by_genre[g]['correct'] += 1
-        if r['correct'] != 'ERROR':
-            by_genre[g]['total'] += 1
+        by_genre[g]['total'] += 1
 
     print(f"\n  By genre:")
     for genre, counts in sorted(by_genre.items()):
         pct = counts['correct'] / counts['total'] * 100 if counts['total'] > 0 else 0
-        print(f"    {genre}: {counts['correct']}/{counts['total']} = {pct:.0f}%")
+        bar = '█' * int(pct / 10) + '░' * (10 - int(pct / 10))
+        print(f"    {genre:<15} {bar} {counts['correct']}/{counts['total']} ({pct:.0f}%)")
     print(f"{'='*55}\n")
 
-    # ── Save CSV ──────────────────────────────────────────────────────────
     csv_path = f"accuracy_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=['track', 'genre', 'expected', 'got', 'score', 'verdict', 'correct', 'url'])
+        writer = csv.DictWriter(f, fieldnames=['track','genre','expected','got','score','verdict','correct','url'])
         writer.writeheader()
         writer.writerows(results)
 
