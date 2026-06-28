@@ -41,6 +41,18 @@ try:
 except Exception as e:
     print(f"Could not load model: {e}")
 
+# ── Fingerprint database lookup ────────────────────────────────────────────
+# Pre-computed acoustic features from 1,192 labeled tracks. When a song
+# is identified by title + artist, we look it up here first — instant
+# ML prediction from real audio features, no download needed.
+FINGERPRINT_AVAILABLE = False
+try:
+    import fingerprint_lookup
+    FINGERPRINT_AVAILABLE = True
+    print(f"Fingerprint DB loaded: {fingerprint_lookup.stats()['count']} tracks")
+except Exception as e:
+    print(f"Fingerprint DB not available: {e}")
+
 try:
     import yt_dlp
     YTDLP_AVAILABLE = True
@@ -65,8 +77,15 @@ def health():
         'status':        'ok',
         'librosa':       LIBROSA_AVAILABLE,
         'trained_model': MODEL_AVAILABLE,
-        'yt_dlp':        YTDLP_AVAILABLE
+        'yt_dlp':        YTDLP_AVAILABLE,
+        'fingerprint_db': fingerprint_lookup.stats() if FINGERPRINT_AVAILABLE else {'loaded': False}
     })
+
+@app.route('/fingerprint/stats')
+def fingerprint_stats():
+    if not FINGERPRINT_AVAILABLE:
+        return jsonify({'loaded': False, 'message': 'fingerprint_lookup module not available'})
+    return jsonify(fingerprint_lookup.stats())
 
 @app.route('/analyse', methods=['POST'])
 def analyse():
@@ -78,6 +97,21 @@ def analyse():
     search_query = data.get('search_query', f"{artist} {song_title}".strip())
 
     logger.info(f"Analysing: {song_title} by {artist}")
+
+    # ── ROUND 0: Fingerprint database lookup (instant, no download) ─────
+    # Check our pre-computed feature database first. If this song's audio
+    # features are already known from training data, return the ML
+    # prediction immediately without going through the download waterfall.
+    if FINGERPRINT_AVAILABLE and (song_title or artist):
+        fp_result = fingerprint_lookup.lookup(song_title, artist)
+        if fp_result:
+            logger.info(f"Fingerprint DB hit: {fp_result['matchedKey']}")
+            features = fp_result['features']
+            ai_score = fp_result['aiProbability']
+            result = features_to_result(features, ai_score=ai_score, method='fingerprint-db')
+            result['audioSource'] = 'fingerprint-db'
+            result['fingerprintMatch'] = fp_result['matchedKey']
+            return jsonify(result)
 
     audio_path  = None
     source_used = None
