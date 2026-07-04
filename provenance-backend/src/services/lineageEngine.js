@@ -636,8 +636,10 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
   });
 
   if (reliableSimilar.length > 0) {
-    // Validate each suggestion has a Wikipedia presence before using it.
-    // Run checks in parallel for speed, keeping those that pass.
+    // Validate each suggestion has a Wikipedia presence before using it,
+    // AND that the artist was active before or during the track's release year.
+    // This prevents newer artists (e.g. Summer Walker, Coco Jones) from
+    // appearing as influences on older tracks (e.g. 2018 Teyana Taylor).
     const validated = await Promise.all(
       reliableSimilar.slice(0, 6).map(async a => {
         try {
@@ -646,11 +648,56 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
           if (res.status === 200 && res.data?.extract) {
             const text = res.data.extract.toLowerCase();
             const isMusicRelated = MUSIC_KEYWORDS.some(kw => text.includes(kw));
-            return isMusicRelated ? a : null;
+            if (!isMusicRelated) return null;
+
+            // Era check: extract career start year from Wikipedia.
+            // Look specifically for debut/career patterns rather than
+            // any year in the article (birth years, historical refs etc
+            // would otherwise make everyone look older than they are).
+            if (trackYear) {
+              const extract = res.data.extract;
+              
+              // Patterns that indicate when an artist's career started
+              const careerPatterns = [
+                /(?:debut(?:ed)?|released|signed|broke out|emerged|began|started|launched|career began)[^\d]{0,20}(\b(19|20)\d{2}\b)/i,
+                /\bin (19|20)\d{2}(?:,| she| he| they)? (?:released|debut|signed|broke)/i,
+              ];
+              
+              let careerYear = null;
+              for (const pattern of careerPatterns) {
+                const match = extract.match(pattern);
+                if (match) {
+                  const year = parseInt(match[0].match(/\b(19|20)\d{2}\b/)[0]);
+                  if (!careerYear || year < careerYear) careerYear = year;
+                }
+              }
+              
+              // Fall back to scanning for years but exclude the first
+              // paragraph's likely birth year by only looking at years
+              // that appear in music/career context
+              if (!careerYear) {
+                const musicContextPattern = /(?:album|single|song|track|mixtape|ep|record|label|tour|perform)[^\d]{0,30}(\b(19|20)\d{2}\b)/gi;
+                const musicYears = [];
+                let m;
+                while ((m = musicContextPattern.exec(extract)) !== null) {
+                  musicYears.push(parseInt(m[0].match(/\b(19|20)\d{2}\b/)[0]));
+                }
+                if (musicYears.length > 0) {
+                  careerYear = Math.min(...musicYears);
+                }
+              }
+
+              // If we found a career year and it's clearly after the track,
+              // this artist can't have influenced the track
+              if (careerYear && careerYear > trackYear + 1) {
+                return null;
+              }
+            }
+            return a;
           }
           return null;
         } catch {
-          return null; // No Wikipedia article — reject this suggestion
+          return null;
         }
       })
     );
