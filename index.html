@@ -9,6 +9,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Provenance</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -25,9 +26,7 @@
   user-select: none;
   z-index: 9999;
 }
-/* ═══════════════════════════════════
-   TOKENS
-═══════════════════════════════════ */
+
 :root {
   --bg:       #faf8ff;
   --bg2:      #f3effe;
@@ -54,19 +53,15 @@
   --fm: 'DM Mono', monospace;
 }
 
-/* ═══════════════════════════════════
-   RESET & BASE
-═══════════════════════════════════ */
+
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:var(--fu); }
 button { font-family:var(--fu); cursor:pointer; }
 
-/* ═══════════════════════════════════
-   APP SHELL
-═══════════════════════════════════ */
+
 .app { position:fixed; inset:0; display:flex; flex-direction:column; }
 
-/* ── screens ── */
+/* -- screens -- */
 .screen {
   position:absolute; inset:0;
   opacity:0; pointer-events:none;
@@ -76,7 +71,7 @@ button { font-family:var(--fu); cursor:pointer; }
 }
 .screen.active { opacity:1; pointer-events:all; }
 
-/* ── scroll areas ── */
+/* -- scroll areas -- */
 .scroll {
   flex:1; overflow-y:auto;
   -webkit-overflow-scrolling:touch;
@@ -84,9 +79,7 @@ button { font-family:var(--fu); cursor:pointer; }
 }
 .scroll::-webkit-scrollbar { display:none; }
 
-/* ═══════════════════════════════════
-   BOTTOM NAV
-═══════════════════════════════════ */
+
 .bnav {
   flex-shrink:0;
   height:64px;
@@ -117,9 +110,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .nic { color:var(--dim); transition:color .2s; width:21px; height:21px; }
 .nil { font-family:var(--fm); font-size:8.5px; letter-spacing:.06em; color:var(--dim); transition:color .2s; text-transform:uppercase; }
 
-/* ═══════════════════════════════════
-   SHARED COMPONENTS
-═══════════════════════════════════ */
+
 .sec { font-family:var(--fm); font-size:9.5px; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; padding:0 20px; margin-bottom:12px; }
 .rule { height:1px; background:var(--bsoft); margin:0 20px 20px; }
 
@@ -161,9 +152,7 @@ button { font-family:var(--fu); cursor:pointer; }
   text-transform:uppercase;
 }
 
-/* ═══════════════════════════════════
-   SPLASH
-═══════════════════════════════════ */
+
 #screen-splash {
   background:var(--ink);
   justify-content:flex-end;
@@ -248,9 +237,7 @@ button { font-family:var(--fu); cursor:pointer; }
 
 @keyframes fup { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
-/* ═══════════════════════════════════
-   TRACE SCREEN
-═══════════════════════════════════ */
+
 #screen-trace { background:var(--bg); }
 
 .trace-search-wrap { padding:52px 20px 16px; flex-shrink:0; }
@@ -338,7 +325,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .lstep.done .ldot { background:var(--green); }
 .lstep.act  .ldot { background:var(--violet); }
 
-/* ── Result layers ── */
+/* -- Result layers -- */
 .t-result { display:none; padding-bottom:24px; }
 
 .layer { padding:14px 16px 0; }
@@ -462,9 +449,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .tech-fill { height:100%; border-radius:2px; background:linear-gradient(90deg, var(--v2), var(--mag)); }
 .tech-val { font-family:var(--fm); font-size:11px; color:var(--ink); min-width:30px; text-align:right; }
 
-/* ═══════════════════════════════════
-   DISCOVER SCREEN
-═══════════════════════════════════ */
+
 #screen-discover { background:var(--bg); }
 
 .disc-topbar {
@@ -569,9 +554,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .erow-title { font-family:var(--fd); font-size:14px; font-weight:700; font-style:italic; color:var(--ink); line-height:1.25; margin-bottom:2px; }
 .erow-sub   { font-size:11px; color:var(--muted); }
 
-/* ═══════════════════════════════════
-   LINEAGE SCREEN
-═══════════════════════════════════ */
+
 #screen-lineage { background:var(--bg); }
 
 .lcard-body  { padding:0 14px 14px; }
@@ -582,9 +565,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .li-text { font-size:12px; color:var(--warm); line-height:1.4; }
 .li-text strong { color:var(--ink); font-weight:600; }
 
-/* ═══════════════════════════════════
-   COMMUNITY SCREEN
-═══════════════════════════════════ */
+
 #screen-community { background:var(--bg); }
 .page-sub { font-size:13px; color:var(--muted); line-height:1.5; margin-top:3px; padding:0 20px 16px; flex-shrink:0; }
 
@@ -622,9 +603,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .empty-title { font-size:14px; font-weight:600; color:var(--ink); margin-bottom:6px; }
 .empty-body  { font-size:13px; color:var(--muted); line-height:1.6; }
 
-/* ═══════════════════════════════════
-   PROFILE SCREEN
-═══════════════════════════════════ */
+
 #screen-profile { background:var(--bg); }
 
 .phero {
@@ -683,9 +662,7 @@ button { font-family:var(--fu); cursor:pointer; }
 .as-n { font-size:20px; font-weight:700; color:var(--ink); }
 .as-l { font-family:var(--fm); font-size:9px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin-top:2px; }
 
-/* ═══════════════════════════════════
-   ARTICLE VIEW (overlay)
-═══════════════════════════════════ */
+
 #article-view {
   position:fixed; inset:0; z-index:200;
   background:var(--bg);
@@ -724,9 +701,7 @@ button { font-family:var(--fu); cursor:pointer; }
   font-family:var(--fd); font-size:16px; font-style:italic; color:var(--ink2);
 }
 
-/* ═══════════════════════════════════
-   TOAST NOTIFICATION
-═══════════════════════════════════ */
+
 .toast {
   position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
   background:var(--ink); color:#f2ecfa;
@@ -738,9 +713,7 @@ button { font-family:var(--fu); cursor:pointer; }
 }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-/* ═══════════════════════════════════
-   MODAL (episode player)
-═══════════════════════════════════ */
+
 .modal-overlay {
   position:fixed; inset:0; z-index:250;
   background:rgba(26,15,46,.7); backdrop-filter:blur(6px);
@@ -787,9 +760,9 @@ button { font-family:var(--fu); cursor:pointer; }
 <div class="watermark">JSWN</div>
 <div class="app">
 
-<!-- ════════════════════════
+<!-- ---
      SPLASH
-════════════════════════ -->
+--- -->
 <div class="screen active" id="screen-splash">
   <div class="sp-bg">
     <div class="sp-grad"></div>
@@ -819,9 +792,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      TRACE
-════════════════════════ -->
+--- -->
 <div class="screen" id="screen-trace">
   <div class="trace-search-wrap">
     <div class="trace-wm">Provenance</div>
@@ -1018,9 +991,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      DISCOVER
-════════════════════════ -->
+--- -->
 <div class="screen" id="screen-discover">
   <div class="disc-topbar">
     <span class="disc-logo">Discover</span>
@@ -1131,9 +1104,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      LINEAGE
-════════════════════════ -->
+--- -->
 <div class="screen" id="screen-lineage">
   <div class="page-header" style="padding-bottom:16px">
     <div class="page-title">Lineage</div>
@@ -1167,9 +1140,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      COMMUNITY
-════════════════════════ -->
+--- -->
 <div class="screen" id="screen-community">
   <div class="page-header">
     <div class="page-title">Community</div>
@@ -1205,9 +1178,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      PROFILE
-════════════════════════ -->
+--- -->
 <div class="screen" id="screen-profile">
   <div class="phero"><div class="pav-wrap"><div class="pav">🎧</div></div></div>
   <div class="pinfo-row">
@@ -1244,9 +1217,9 @@ button { font-family:var(--fu); cursor:pointer; }
   </div>
 </div>
 
-<!-- ════════════════════════
+<!-- ---
      ARTICLE VIEW (overlay)
-════════════════════════ -->
+--- -->
 <div id="article-view">
   <div class="av-header">
     <button class="av-back" onclick="closeArticle()">
@@ -1292,9 +1265,9 @@ button { font-family:var(--fu); cursor:pointer; }
 
 </div><!-- end .app -->
 
-<!-- ════════════════════════
+<!-- ---
      ARTICLES DATA
-════════════════════════ -->
+--- -->
 <script>
 const ARTICLES = {
   quincy: {
@@ -1306,22 +1279,22 @@ const ARTICLES = {
       <div class="av-headline">How Quincy Jones shaped the voice AI learned to love</div>
       <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>There is a sound that appears in more AI-generated music than almost any other. It arrives in the space between notes — a particular kind of orchestral warmth, a layering of harmonics that feels simultaneously lush and precise. Most listeners sense it without knowing its name. Its name is Quincy Jones.</p>
+        <p>There is a sound that appears in more AI-generated music than almost any other. It arrives in the space between notes -- a particular kind of orchestral warmth, a layering of harmonics that feels simultaneously lush and precise. Most listeners sense it without knowing its name. Its name is Quincy Jones.</p>
         <h3>The Architecture of Influence</h3>
-        <p>Between 1979 and 1991, Quincy Jones produced what are arguably the most technically perfect pop recordings ever made. Off the Wall, Thriller, Bad — these albums were not just commercial triumphs. They were instruction manuals. Every producer who followed studied them. Every studio engineer learned from their arrangements. And the AI systems trained on decades of recorded music absorbed them as defining examples of what pop music should sound like.</p>
+        <p>Between 1979 and 1991, Quincy Jones produced what are arguably the most technically perfect pop recordings ever made. Off the Wall, Thriller, Bad -- these albums were not just commercial triumphs. They were instruction manuals. Every producer who followed studied them. Every studio engineer learned from their arrangements. And the AI systems trained on decades of recorded music absorbed them as defining examples of what pop music should sound like.</p>
         <blockquote>"Recording is not just about capturing sound. It's about creating a space that feels real even when it isn't."</blockquote>
         <h3>What AI Took Without Knowing</h3>
         <p>The specific techniques that define Jones' production fingerprint are now embedded in AI music generation without attribution. The way he layered string sections to create emotional counterpoint. The precise placement of backing vocals in the stereo field. The balance between warmth in the low-mids and clarity in the high frequencies. These are not generic production choices. They are the result of decades of craft, experimentation, and accumulated knowledge.</p>
-        <p>When an AI system generates a track that sounds warm, orchestrated, and emotionally resonant, it is often unconsciously channeling these specific choices — learned from the catalogue that Jones spent a lifetime building.</p>
+        <p>When an AI system generates a track that sounds warm, orchestrated, and emotionally resonant, it is often unconsciously channeling these specific choices -- learned from the catalogue that Jones spent a lifetime building.</p>
         <h3>Who Carries the Lineage</h3>
         <p>The Michael Jackson and Quincy Jones estates are two of the most clearly identifiable influences in contemporary AI music. Their work together represented a synthesis of R&B, pop, gospel, and orchestral composition that became the dominant template for commercial music production globally. That template now lives inside the training data of every major AI music generation system.</p>
-        <p>Provenance exists partly to make this visible — to ensure that when a listener hears that warmth, that precision, that particular kind of orchestral humanity in an AI track, they know where it came from.</p>
+        <p>Provenance exists partly to make this visible -- to ensure that when a listener hears that warmth, that precision, that particular kind of orchestral humanity in an AI track, they know where it came from.</p>
       </div>
     `
   },
   gospel: {
     tag: 'Cultural Piece',
-    title: 'Gospel, soul, and the roots of AI\'s favourite sound',
+    title: "Gospel, soul, and the roots of AI's favourite sound",
     hero: '🌍',
     body: `
       <div class="av-hero">🌍</div>
@@ -1330,35 +1303,35 @@ const ARTICLES = {
       <div class="av-body">
         <p>There is a particular kind of vocal performance that AI music generation systems produce more than any other. It is emotionally expansive, melodically adventurous, built around long sustained notes that shift in pitch and texture. Its name is melisma. Its home is Black gospel music.</p>
         <h3>The Sound of Testimony</h3>
-        <p>Gospel music developed in Black American communities as a form of spiritual testimony and communal expression. Its vocal traditions — the call and response, the melismatic runs, the raw emotional delivery that moves between speaking and singing — were not entertainment techniques. They were expressions of lived experience, of faith, of survival.</p>
+        <p>Gospel music developed in Black American communities as a form of spiritual testimony and communal expression. Its vocal traditions -- the call and response, the melismatic runs, the raw emotional delivery that moves between speaking and singing -- were not entertainment techniques. They were expressions of lived experience, of faith, of survival.</p>
         <blockquote>"You have to feel it before you can sing it. And the feeling comes from something real."</blockquote>
         <h3>How It Moved Into Pop</h3>
         <p>Through artists like Aretha Franklin, Sam Cooke, Mahalia Jackson, and later Whitney Houston and Mariah Carey, gospel vocal technique entered mainstream popular music. The techniques remained but their origins became increasingly invisible to wider audiences who encountered them through pop and R&B rather than church.</p>
         <h3>What AI Absorbed</h3>
         <p>AI music generation systems trained on decades of popular music recordings absorbed these vocal techniques as core characteristics of expressive singing. They learned that melismatic runs signal emotion. They learned the patterns of call and response. They learned the particular timbre that comes from gospel-trained voices.</p>
-        <p>What they did not learn — because it was not in the training data — was the cultural context. The communities that built this sound. The history that made it necessary. The people whose creative labour made it possible.</p>
+        <p>What they did not learn -- because it was not in the training data -- was the cultural context. The communities that built this sound. The history that made it necessary. The people whose creative labour made it possible.</p>
         <p>Provenance exists to put that context back.</p>
       </div>
     `
   },
   silence: {
     tag: 'Between the Notes',
-    title: 'What silence taught jazz — and what AI forgot',
+    title: 'What silence taught jazz -- and what AI forgot',
     hero: '🎷',
     body: `
       <div class="av-hero">🎷</div>
-      <div class="av-headline">What silence taught jazz — and what AI forgot</div>
+      <div class="av-headline">What silence taught jazz -- and what AI forgot</div>
       <div class="av-byline">BETWEEN THE NOTES · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Miles Davis said it simply: "It's not the notes you play, it's the notes you don't play." This is one of the most repeated quotes in music. It is also one of the most misunderstood — and one of the most revealing observations about what AI music currently lacks.</p>
+        <p>Miles Davis said it simply: "It's not the notes you play, it's the notes you don't play." This is one of the most repeated quotes in music. It is also one of the most misunderstood -- and one of the most revealing observations about what AI music currently lacks.</p>
         <h3>The Meaning of Space</h3>
-        <p>In jazz, silence is not the absence of music. It is part of the music. A rest is a choice. A pause is a statement. The space between a note and its resolution creates tension that the resolution releases. Without that space — without the willingness to leave room — music becomes noise, however beautiful its individual components might be.</p>
+        <p>In jazz, silence is not the absence of music. It is part of the music. A rest is a choice. A pause is a statement. The space between a note and its resolution creates tension that the resolution releases. Without that space -- without the willingness to leave room -- music becomes noise, however beautiful its individual components might be.</p>
         <blockquote>"Don't play what's there. Play what's not there."</blockquote>
         <h3>What AI Music Fills</h3>
-        <p>Listen carefully to AI-generated music and you will notice that it is rarely empty. There is almost always something happening — a pad, a texture, a subtle harmonic element filling the space that a human musician might leave open. This is not a technical limitation. It is a fundamental misunderstanding of what music is for.</p>
+        <p>Listen carefully to AI-generated music and you will notice that it is rarely empty. There is almost always something happening -- a pad, a texture, a subtle harmonic element filling the space that a human musician might leave open. This is not a technical limitation. It is a fundamental misunderstanding of what music is for.</p>
         <p>Human music-making involves constant decisions about what not to play. A jazz musician's silence can be more expressive than their notes. A gospel singer's breath before a phrase carries as much meaning as the phrase itself. These are choices that emerge from embodied experience, from understanding music as communication rather than sound generation.</p>
         <h3>What We Lose</h3>
-        <p>The question this raises is not whether AI can ever learn to use silence effectively. It may well develop that capacity. The question is what we lose in the period before it does — and whether we notice the loss while it is happening.</p>
+        <p>The question this raises is not whether AI can ever learn to use silence effectively. It may well develop that capacity. The question is what we lose in the period before it does -- and whether we notice the loss while it is happening.</p>
       </div>
     `
   },
@@ -1371,36 +1344,36 @@ const ARTICLES = {
       <div class="av-headline">The vocal processing choices that signal AI involvement</div>
       <div class="av-byline">CREATION NOTES · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Your ears are already detecting something when you listen to an AI-generated vocal. Most people describe it as a feeling that something is slightly off — too smooth, too perfect, somehow hollow. This is a short guide to what you're actually hearing.</p>
+        <p>Your ears are already detecting something when you listen to an AI-generated vocal. Most people describe it as a feeling that something is slightly off -- too smooth, too perfect, somehow hollow. This is a short guide to what you're actually hearing.</p>
         <h3>Pitch Correction</h3>
-        <p>Human singers are constantly adjusting pitch, microtonally, in ways that create subtle variation and emotional expressiveness. AI vocals tend to lock to pitch with mathematical precision. This creates a characteristic smoothness that experienced listeners can identify — notes that are technically correct but lack the micro-variations that make human singing feel alive.</p>
+        <p>Human singers are constantly adjusting pitch, microtonally, in ways that create subtle variation and emotional expressiveness. AI vocals tend to lock to pitch with mathematical precision. This creates a characteristic smoothness that experienced listeners can identify -- notes that are technically correct but lack the micro-variations that make human singing feel alive.</p>
         <h3>Breath Presence</h3>
-        <p>Human singing involves breath — audible inhales before phrases, the slight changes in tone as breath runs out, the natural imperfections of a physical body producing sound. AI-generated vocals typically have low or absent breath presence. The vocal appears to continue without the physical interruptions that characterise human performance.</p>
+        <p>Human singing involves breath -- audible inhales before phrases, the slight changes in tone as breath runs out, the natural imperfections of a physical body producing sound. AI-generated vocals typically have low or absent breath presence. The vocal appears to continue without the physical interruptions that characterise human performance.</p>
         <blockquote>"The imperfections are the humanity. When they disappear, something essential goes with them."</blockquote>
         <h3>Timing Regularity</h3>
-        <p>Human performers naturally drift slightly from rigid rhythmic grids — a quality sometimes called 'feel' or 'groove'. AI music tends toward high timing regularity, sitting precisely on the beat in ways that create a mechanical quality even when the production is otherwise sophisticated.</p>
+        <p>Human performers naturally drift slightly from rigid rhythmic grids -- a quality sometimes called 'feel' or 'groove'. AI music tends toward high timing regularity, sitting precisely on the beat in ways that create a mechanical quality even when the production is otherwise sophisticated.</p>
         <h3>Spectral Smoothing</h3>
-        <p>The frequency spectrum of AI-generated audio is often unusually smooth — lacking the natural resonances, room sounds, and harmonic complexity of recorded human performance. This spectral evenness is one of the more technically complex signals but experienced engineers and musicians often identify it quickly.</p>
+        <p>The frequency spectrum of AI-generated audio is often unusually smooth -- lacking the natural resonances, room sounds, and harmonic complexity of recorded human performance. This spectral evenness is one of the more technically complex signals but experienced engineers and musicians often identify it quickly.</p>
         <p>None of these signals is definitive in isolation. All of them together create the impression your ears are already receiving.</p>
       </div>
     `
   },
   mj: {
     tag: 'Creative Lineage',
-    title: 'Michael Jackson — vocal influence',
+    title: 'Michael Jackson -- vocal influence',
     hero: '🕺',
     body: `
       <div class="av-hero">🕺</div>
-      <div class="av-headline">Michael Jackson — vocal influence in AI music</div>
+      <div class="av-headline">Michael Jackson -- vocal influence in AI music</div>
       <div class="av-byline">CREATIVE LINEAGE · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Michael Jackson's vocal style is one of the most recognisable and widely imitated in the history of recorded music. His techniques — the specific phrasing, the percussive interjections, the emotional intensity, the precision of his breath control — have been studied and absorbed by generations of singers. They have also, through those recordings, been absorbed by AI music generation systems.</p>
+        <p>Michael Jackson's vocal style is one of the most recognisable and widely imitated in the history of recorded music. His techniques -- the specific phrasing, the percussive interjections, the emotional intensity, the precision of his breath control -- have been studied and absorbed by generations of singers. They have also, through those recordings, been absorbed by AI music generation systems.</p>
         <h3>What Makes the Style Distinctive</h3>
-        <p>Several elements of Jackson's vocal technique are particularly identifiable. His use of percussive sounds — the "hee," the sharp exhales — as rhythmic elements within phrases. His tendency to sing slightly behind the beat, creating a relaxed but intensely controlled feeling. The way he modulates between chest voice and falsetto with unusual smoothness. The emotional directness of his delivery, which sounds simultaneously vulnerable and powerful.</p>
+        <p>Several elements of Jackson's vocal technique are particularly identifiable. His use of percussive sounds -- the "hee," the sharp exhales -- as rhythmic elements within phrases. His tendency to sing slightly behind the beat, creating a relaxed but intensely controlled feeling. The way he modulates between chest voice and falsetto with unusual smoothness. The emotional directness of his delivery, which sounds simultaneously vulnerable and powerful.</p>
         <blockquote>"You have to feel it. I'm not thinking about technique when I sing. I'm thinking about the feeling."</blockquote>
         <h3>The Estate and AI</h3>
         <p>The Michael Jackson Estate represents one of the clearest cases in which a specific artist's vocal style has been absorbed into AI training data and reproduced without acknowledgement or compensation. The Estate currently has no mechanism for receiving recognition or compensation when AI systems generate music that carries his influence.</p>
-        <p>Provenance documents these instances. The conversation about what comes next — about recognition, attribution, and the future of AI and artistic legacy — depends on having an accurate record of where the influence is flowing.</p>
+        <p>Provenance documents these instances. The conversation about what comes next -- about recognition, attribution, and the future of AI and artistic legacy -- depends on having an accurate record of where the influence is flowing.</p>
       </div>
     `
   },
@@ -1413,32 +1386,32 @@ const ARTICLES = {
       <div class="av-headline">Afrobeats and the rhythm AI borrows without credit</div>
       <div class="av-byline">CULTURAL PIECE · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Afrobeats is one of the most commercially and culturally significant music movements of the 21st century. Originating in West Africa and shaped by artists including Fela Kuti, and in its contemporary form by Wizkid, Burna Boy, Davido, and others, it has become a global sonic force. It has also become one of the most borrowed sounds in AI music generation — often without attribution.</p>
+        <p>Afrobeats is one of the most commercially and culturally significant music movements of the 21st century. Originating in West Africa and shaped by artists including Fela Kuti, and in its contemporary form by Wizkid, Burna Boy, Davido, and others, it has become a global sonic force. It has also become one of the most borrowed sounds in AI music generation -- often without attribution.</p>
         <h3>The Rhythmic Architecture</h3>
-        <p>What makes Afrobeats rhythmically distinctive is its relationship to polyrhythm — multiple rhythmic patterns happening simultaneously, creating a groove that feels both complex and irresistibly danceable. The 12/8 feel that characterises much Afrobeats production, the specific placement of percussion, the way rhythm and melody interweave — these are not generic production techniques. They are the result of a specific cultural and musical tradition with deep roots.</p>
+        <p>What makes Afrobeats rhythmically distinctive is its relationship to polyrhythm -- multiple rhythmic patterns happening simultaneously, creating a groove that feels both complex and irresistibly danceable. The 12/8 feel that characterises much Afrobeats production, the specific placement of percussion, the way rhythm and melody interweave -- these are not generic production techniques. They are the result of a specific cultural and musical tradition with deep roots.</p>
         <blockquote>"The music comes from the people. You cannot separate the sound from where it came from."</blockquote>
         <h3>The Pattern of Erasure</h3>
-        <p>Throughout the history of popular music, sounds that originated in African and African-diaspora communities have repeatedly been absorbed into mainstream commercial music without credit, compensation, or acknowledgement of their origins. AI music generation represents the latest iteration of this pattern — but at a scale and speed that is unprecedented.</p>
-        <p>When AI systems generate tracks with Afrobeats-influenced rhythms and production, the cultural lineage behind those sounds is invisible. Provenance exists to make it visible — and to ensure that as the conversation about AI and creative attribution develops, these communities and their contributions are part of it.</p>
+        <p>Throughout the history of popular music, sounds that originated in African and African-diaspora communities have repeatedly been absorbed into mainstream commercial music without credit, compensation, or acknowledgement of their origins. AI music generation represents the latest iteration of this pattern -- but at a scale and speed that is unprecedented.</p>
+        <p>When AI systems generate tracks with Afrobeats-influenced rhythms and production, the cultural lineage behind those sounds is invisible. Provenance exists to make it visible -- and to ensure that as the conversation about AI and creative attribution develops, these communities and their contributions are part of it.</p>
       </div>
     `
   },
   amy: {
     tag: 'Between the Notes',
-    title: 'The imperfection in Amy Winehouse\'s voice',
+    title: "The imperfection in Amy Winehouse's voice",
     hero: '🎹',
     body: `
       <div class="av-hero">🎹</div>
       <div class="av-headline">The imperfection in Amy Winehouse's voice</div>
       <div class="av-byline">BETWEEN THE NOTES · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Amy Winehouse's voice was imperfect in the most essential way. It caught. It broke. It rasped in the lower registers and strained beautifully at the top. It carried the specific weight of her experience in every phrase. And it is precisely these imperfections — these qualities that no AI system would generate because it would register them as flaws — that made her voice one of the most emotionally powerful in the history of recorded music.</p>
+        <p>Amy Winehouse's voice was imperfect in the most essential way. It caught. It broke. It rasped in the lower registers and strained beautifully at the top. It carried the specific weight of her experience in every phrase. And it is precisely these imperfections -- these qualities that no AI system would generate because it would register them as flaws -- that made her voice one of the most emotionally powerful in the history of recorded music.</p>
         <h3>What Imperfection Communicates</h3>
         <p>In music, imperfection is often not a failure of technique. It is the technique. The slight flatness that appears in Winehouse's voice when she hits certain emotional peaks is not a mistake. It is the sound of genuine feeling pushing through the limits of controlled performance. Listeners respond to it viscerally because it sounds true.</p>
         <blockquote>"I don't think about how I sound. I think about what I'm saying."</blockquote>
         <h3>What AI Optimises Away</h3>
-        <p>AI vocal generation is, at its core, an optimisation process. It learns what technically correct, aesthetically polished vocal performance sounds like from training data, and it reproduces those qualities. What it cannot reproduce — what it optimises away — are the imperfections that carry meaning. The catches. The breaks. The places where the technical control slips and something rawer comes through.</p>
-        <p>This is not simply a quality difference between human and AI music. It is a philosophical difference about what music is for — whether it is meant to be technically perfect or humanly true. Amy Winehouse's voice was humanly true. That is why it still matters.</p>
+        <p>AI vocal generation is, at its core, an optimisation process. It learns what technically correct, aesthetically polished vocal performance sounds like from training data, and it reproduces those qualities. What it cannot reproduce -- what it optimises away -- are the imperfections that carry meaning. The catches. The breaks. The places where the technical control slips and something rawer comes through.</p>
+        <p>This is not simply a quality difference between human and AI music. It is a philosophical difference about what music is for -- whether it is meant to be technically perfect or humanly true. Amy Winehouse's voice was humanly true. That is why it still matters.</p>
       </div>
     `
   },
@@ -1451,13 +1424,13 @@ const ARTICLES = {
       <div class="av-headline">The Timbaland rhythm that redefined everything</div>
       <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>In the late 1990s, a producer from Virginia Beach changed the sound of popular music with a rhythmic approach so distinctive that it spawned an entire era of imitation. Timbaland's production — sparse, syncopated, built around unusual percussion sounds and unexpected rhythmic placements — became the defining aesthetic of late 90s and early 2000s R&B. It also became foundational to how AI systems understand what R&B should sound like.</p>
+        <p>In the late 1990s, a producer from Virginia Beach changed the sound of popular music with a rhythmic approach so distinctive that it spawned an entire era of imitation. Timbaland's production -- sparse, syncopated, built around unusual percussion sounds and unexpected rhythmic placements -- became the defining aesthetic of late 90s and early 2000s R&B. It also became foundational to how AI systems understand what R&B should sound like.</p>
         <h3>The Elements of the Sound</h3>
         <p>What made Timbaland's production so distinctive was his use of space. Where other producers filled their arrangements, he removed. What remained was percussion that sat in unexpected places, bass lines that moved against the grid rather than with it, and a particular attention to the relationship between rhythm and silence that created grooves of unusual hypnotic power.</p>
         <blockquote>"I hear rhythms everywhere. In conversation, in movement, in the way people walk. Music is just organised versions of the rhythms that are already there."</blockquote>
         <h3>The Legacy in AI</h3>
         <p>Albums like Aaliyah's self-titled record, Missy Elliott's Supa Dupa Fly, and Jay-Z's Vol. 2 were not just commercial successes. They were so widely studied, analysed, and imitated that their rhythmic and production approaches became embedded in the DNA of popular music production. AI systems trained on this music absorbed these patterns as core characteristics of the genre.</p>
-        <p>When contemporary AI music generation produces tracks in the R&B or hip-hop space, the ghost of Timbaland's rhythmic innovations is often present — not because it was placed there intentionally, but because it is woven into what those genres sound like, and therefore into what the AI learned.</p>
+        <p>When contemporary AI music generation produces tracks in the R&B or hip-hop space, the ghost of Timbaland's rhythmic innovations is often present -- not because it was placed there intentionally, but because it is woven into what those genres sound like, and therefore into what the AI learned.</p>
       </div>
     `
   },
@@ -1470,21 +1443,19 @@ const ARTICLES = {
       <div class="av-headline">Jimi Hendrix and the guitar language AI speaks</div>
       <div class="av-byline">PRODUCTION STORY · PROVENANCE ARCHIVE</div>
       <div class="av-body">
-        <p>Every time an AI music generation system produces a guitar riff that bends, wails, or sustains in a particular way — every time it reaches for the kind of expressive, bluesy, feedback-inflected sound that we associate with electric guitar at its most emotionally powerful — it is speaking a language that Jimi Hendrix wrote.</p>
+        <p>Every time an AI music generation system produces a guitar riff that bends, wails, or sustains in a particular way -- every time it reaches for the kind of expressive, bluesy, feedback-inflected sound that we associate with electric guitar at its most emotionally powerful -- it is speaking a language that Jimi Hendrix wrote.</p>
         <h3>The Grammar of Expression</h3>
-        <p>Hendrix did not invent the electric guitar. But he expanded its expressive vocabulary in ways that permanently changed what the instrument could communicate. His use of feedback — controlled, musical, intentional — turned what had previously been an unwanted artefact into an expressive tool. His approach to bending notes, to using the whammy bar as a compositional element, to treating the guitar as a voice rather than an instrument, created a new grammar.</p>
+        <p>Hendrix did not invent the electric guitar. But he expanded its expressive vocabulary in ways that permanently changed what the instrument could communicate. His use of feedback -- controlled, musical, intentional -- turned what had previously been an unwanted artefact into an expressive tool. His approach to bending notes, to using the whammy bar as a compositional element, to treating the guitar as a voice rather than an instrument, created a new grammar.</p>
         <blockquote>"I don't play the guitar. I use the guitar to play myself."</blockquote>
         <h3>The Inheritance</h3>
         <p>That grammar was absorbed by every guitarist who came after, and through them, into recorded music at large. From Stevie Ray Vaughan to Prince to John Mayer, the Hendrix influence runs as a continuous thread through electric guitar performance and recording for the past 55 years. AI systems trained on this music absorbed the grammar without knowing its source.</p>
-        <p>The result is that contemporary AI-generated music involving guitar — whether explicitly rock-influenced or drawing on the blues heritage that underpins nearly all popular music — carries Hendrix's influence at a fundamental level. Provenance traces that inheritance and makes it visible.</p>
+        <p>The result is that contemporary AI-generated music involving guitar -- whether explicitly rock-influenced or drawing on the blues heritage that underpins nearly all popular music -- carries Hendrix's influence at a fundamental level. Provenance traces that inheritance and makes it visible.</p>
       </div>
     `
   }
 };
 
-/* ════════════════════════
-   APP STATE & NAVIGATION
-════════════════════════ */
+
 let currentScreen = 'splash';
 let traceState = 'idle'; // idle | loading | result
 let isPlaying = false;
@@ -1518,9 +1489,7 @@ function go(screenId) {
   closeArticle();
 }
 
-/* ════════════════════════
-   TRACE FUNCTIONALITY
-════════════════════════ */
+
 function setInput(text) {
   document.getElementById('ts-input').value = text;
 }
@@ -1553,7 +1522,7 @@ async function startTrace() {
   traceState = 'loading';
 
   const ids = ['ls1','ls2','ls3','ls4'];
-  const labels = ['Tracing the music…','Identifying vocal patterns…','Mapping creative influences…','Documenting cultural lineage…'];
+  const labels = ['Tracing the music...','Identifying vocal patterns...','Mapping creative influences...','Documenting cultural lineage...'];
   const subs = ['Analysing production signals','Matching against known artists','Building the lineage picture','Almost done'];
   ids.forEach(id => document.getElementById(id).className = 'lstep');
   document.getElementById('ls1').className = 'lstep act';
@@ -1711,9 +1680,41 @@ function renderCreativeLineage(lineage) {
   }
 }
 
-/* ════════════════════════
-   TRACE HISTORY (localStorage, no login needed)
-════════════════════════ */
+function renderContributors(contributors) {
+  const card = document.getElementById('contributors-card');
+  const list = document.getElementById('contributors-list');
+  if (!card || !list) return;
+
+  if (!contributors) {
+    card.style.display = 'none';
+    return;
+  }
+
+  const groups = [
+    { label: 'Main Artist',   names: [contributors.primaryArtist].filter(Boolean) },
+    { label: 'Featured',      names: contributors.featuredArtists || [] },
+    { label: 'Writers',       names: contributors.writers || [] },
+    { label: 'Producers',     names: contributors.producers || [] }
+  ].filter(g => g.names.length > 0);
+
+  if (groups.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'block';
+  list.innerHTML = groups.map(g => `
+    <div class="contrib-role-group">
+      <div class="contrib-role-lbl">${g.label}</div>
+      <div class="contrib-names">
+        ${g.names.map(name => `<span class="contrib-pill">${name}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+
+
 const TRACE_HISTORY_KEY = 'provenance_trace_history';
 const MAX_HISTORY = 50;
 
@@ -1782,7 +1783,7 @@ function pillColorVar(pillClass) {
   return 'var(--green)';
 }
 
-/* ── Lineage tab — real recent traces ────────────────────────────── */
+/* -- Lineage tab -- real recent traces --------------------------- */
 function renderLineageHistory() {
   const container = document.getElementById('lineage-recent');
   const empty     = document.getElementById('lineage-empty');
@@ -1800,11 +1801,11 @@ function renderLineageHistory() {
   container.innerHTML = history.slice(0, 8).map(h => {
     const influenceRows = (h.influences || []).slice(0, 3).map((inf, i) => {
       const dotColors = ['var(--violet)', 'var(--amber)', 'var(--mag)'];
-      return `<div class="li"><div class="li-dot" style="background:${dotColors[i] || 'var(--violet)'}"></div><div class="li-text">${inf.type || 'Influence'} — <strong>${inf.name}</strong></div></div>`;
+      return `<div class="li"><div class="li-dot" style="background:${dotColors[i] || 'var(--violet)'}"></div><div class="li-text">${inf.type || 'Influence'} -- <strong>${inf.name}</strong></div></div>`;
     }).join('');
 
     const cultureRow = h.culturalContext
-      ? `<div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from — <strong>${(h.genreLineage || []).map(g => g.name).join(', ') || 'Documented tradition'}</strong></div></div>`
+      ? `<div class="li"><div class="li-dot" style="background:var(--mag)"></div><div class="li-text">Draws from -- <strong>${(h.genreLineage || []).map(g => g.name).join(', ') || 'Documented tradition'}</strong></div></div>`
       : '';
 
     const emoji = h.isAiGenerated ? '🤖' : '🎤';
@@ -1843,7 +1844,7 @@ function reopenTrace(traceId) {
   document.querySelector('.verdict-sentence').innerHTML = item.verdictSentence || '';
 }
 
-/* ── Profile tab — real session stats and history ───────────────────── */
+/* -- Profile tab -- real session stats and history ------------------ */
 function renderProfileHistory() {
   const history = getTraceHistory();
   const list  = document.getElementById('profile-history-list');
@@ -1867,11 +1868,11 @@ function renderProfileHistory() {
   empty.style.display = 'none';
   list.innerHTML = history.map(h => {
     const icon = h.isAiGenerated || h.aiLikelihoodScore >= 0.65 ? '🤖' : '🎤';
-    return `<div class="ppost" onclick="reopenTrace('${h.traceId}')"><div class="pp-icon">${icon}</div><div class="pp-body"><div class="pp-title">${h.title} — ${h.artist}</div><div class="pp-meta">${h.aiVerdict} · ${timeAgo(h.tracedAt)}</div></div></div>`;
+    return `<div class="ppost" onclick="reopenTrace('${h.traceId}')"><div class="pp-icon">${icon}</div><div class="pp-body"><div class="pp-title">${h.title} -- ${h.artist}</div><div class="pp-meta">${h.aiVerdict} · ${timeAgo(h.tracedAt)}</div></div></div>`;
   }).join('');
 }
 
-/* ── Community "Your Activity" tab — real history ────────────────────── */
+/* -- Community "Your Activity" tab -- real history ------------------- */
 function renderYourActivity() {
   const history = getTraceHistory();
   const list  = document.getElementById('your-activity-list');
@@ -1905,9 +1906,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderProfileHistory();
   renderYourActivity();
 });
-/* ════════════════════════
-   COLLAPSIBLE
-════════════════════════ */
+
 function toggleColl(el) {
   const icon = el.querySelector('.coll-icon');
   const body = el.nextElementSibling;
@@ -1915,9 +1914,7 @@ function toggleColl(el) {
   icon.classList.toggle('open', isOpen);
 }
 
-/* ════════════════════════
-   TAB SWITCHING (generic)
-════════════════════════ */
+
 function switchTab(clickedTab, showId, ...hideIds) {
   // Update tab bar styling
   const bar = clickedTab.closest('.tab-bar');
@@ -1933,9 +1930,7 @@ function switchTab(clickedTab, showId, ...hideIds) {
   });
 }
 
-/* ════════════════════════
-   DISCOVER FILTER
-════════════════════════ */
+
 function filterDiscover(type, el) {
   // Update tabs
   document.querySelectorAll('.ctabs .ctab').forEach(t => t.classList.remove('on'));
@@ -1953,9 +1948,7 @@ function filterDiscover(type, el) {
   });
 }
 
-/* ════════════════════════
-   ARTICLE VIEW
-════════════════════════ */
+
 function openArticle(key) {
   const article = ARTICLES[key];
   if (!article) return;
@@ -1973,9 +1966,7 @@ function closeArticle() {
   document.getElementById('article-view').classList.remove('open');
 }
 
-/* ════════════════════════
-   EPISODE PLAYER
-════════════════════════ */
+
 function openEpisode(name, role, art) {
   document.getElementById('ep-name').textContent  = name;
   document.getElementById('ep-name2').textContent = name;
@@ -2033,9 +2024,7 @@ function updatePlayBtn() {
   );
 }
 
-/* ════════════════════════
-   TOAST
-════════════════════════ */
+
 let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -2045,9 +2034,7 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-/* ════════════════════════
-   BACK GESTURE (swipe right from edge)
-════════════════════════ */
+
 let touchStartX = 0;
 document.addEventListener('touchstart', e => {
   touchStartX = e.touches[0].clientX;
