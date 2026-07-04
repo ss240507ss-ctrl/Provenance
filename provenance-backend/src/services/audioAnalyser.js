@@ -441,11 +441,11 @@ async function analyseCore(resolved, songData) {
   // confirm a real registered artist while that artist's specific track
   // still uses an AI-cloned voice, e.g. L$30 cloning Michael Jackson).
   try {
-    const [claudeCheck, googleCheck, duckduckgoCheck] = await Promise.all([
+    const [claudeCheck, googleCheck] = await Promise.all([
       checkClaudeVerification(songData.artist, songData.title),
-      checkGoogleSearch(songData.artist),
-      checkDuckDuckGo(songData.artist)
+      checkGoogleSearch(songData.artist)
     ]);
+    const duckduckgoCheck = null; // Disabled — consistently timing out on Railway
 
     if (claudeCheck && claudeCheck.sourceFound && claudeCheck.confidence >= 0.6) {
       if (claudeCheck.isVoiceClone && claudeCheck.clonedArtistName) {
