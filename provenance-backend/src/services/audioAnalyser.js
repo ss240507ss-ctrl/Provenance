@@ -504,7 +504,36 @@ async function analyseCore(resolved, songData) {
   if (process.env.PYTHON_SERVICE_URL) {
     try {
       const audioResult = await callPythonService(resolved, songData);
-      if (audioResult && audioResult.method !== 'metadata-heuristics') return audioResult;
+      if (audioResult && audioResult.method !== 'metadata-heuristics') {
+
+        // If the Python service found acoustic similarity matches against
+        // real human tracks in the fingerprint database, attach them as
+        // similarArtists so the lineage engine can surface real artist
+        // names instead of generic genre-pool suggestions.
+        if (audioResult.acousticInfluences && audioResult.acousticInfluences.length > 0) {
+          audioResult.similarArtists = audioResult.acousticInfluences.map(match => ({
+            name: match.filename
+              .replace(/\.(mp3|wav|flac)$/i, '')
+              .replace(/_spotdown\.org.*/i, '')
+              .replace(/[_-]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim(),
+            similarity: match.similarity,
+            genre: match.genre,
+            source: 'acoustic-fingerprint'
+          })).filter(a => a.name && a.name.length > 2);
+        }
+
+        // If metadata scan found AI signatures, flag it clearly
+        if (audioResult.metadataAiDetected) {
+          audioResult.method = (audioResult.method || '') + '+metadata-ai-confirmed';
+          if (audioResult.c2paFound) {
+            audioResult.method += '+c2pa';
+          }
+        }
+
+        return audioResult;
+      }
     } catch (err) {
       console.warn('Python audio service unavailable, using fast-path result');
     }
