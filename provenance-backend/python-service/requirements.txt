@@ -5,3 +5,4 @@ requests
 yt-dlp
 joblib
 scikit-learn
+mutagen
