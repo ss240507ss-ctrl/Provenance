@@ -175,25 +175,29 @@ button { font-family:var(--fu); cursor:pointer; }
   0%,100% { opacity:.5; transform:translate(-50%,-50%) scale(1); }
   50%      { opacity:1;  transform:translate(-50%,-50%) scale(1.12); }
 }
-.sp-rings {
-  position:absolute; top:18%; left:50%;
-  transform:translateX(-50%);
-  width:min(82vw,330px); height:min(82vw,330px);
-  animation:rspin 14s linear infinite;
-}
-@keyframes rspin { to { transform:translateX(-50%) rotate(360deg); } }
-.sp-rings circle { fill:none; }
+.sp-rings { display:none; }
+.sp-logo-svg { display:none; }
 
-.sp-logo {
-  position:absolute; top:18%; left:50%;
-  transform:translateX(-50%);
-  width:min(62vw,250px); height:min(62vw,250px);
-  object-fit:contain;
-  border-radius:50%;
-  opacity:0.92;
-  filter:drop-shadow(0 0 24px rgba(139,92,246,.4));
-  z-index:1;
+.sp-wave-wrap {
+  position:absolute; top:10%; left:0; right:0;
+  height:55%; overflow:hidden;
+  mask-image:linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image:linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
 }
+.sp-wave-inner {
+  position:relative; width:100%; height:100%;
+}
+.sp-wave-svg {
+  position:absolute; top:50%; left:-100%;
+  width:200%; height:60%;
+  transform:translateY(-50%);
+}
+@keyframes sw1 { from{left:-100%} to{left:0%} }
+@keyframes sw2 { from{left:-100%} to{left:0%} }
+@keyframes sw3 { from{left:-100%} to{left:0%} }
+.sw1 { animation:sw1 8.0s linear infinite; }
+.sw2 { animation:sw2 11.0s linear infinite; }
+.sw3 { animation:sw3 14.0s linear infinite; }
 
 .sp-wave {
   position:absolute; bottom:44%; left:0; right:0;
@@ -778,20 +782,24 @@ button { font-family:var(--fu); cursor:pointer; }
   <div class="sp-bg">
     <div class="sp-grad"></div>
     <div class="sp-glow"></div>
-    <svg class="sp-rings" viewBox="0 0 330 330" fill="none">
-      <circle cx="165" cy="165" r="68"  stroke="rgba(139,92,246,.25)" stroke-width="1"/>
-      <circle cx="165" cy="165" r="108" stroke="rgba(109,40,217,.15)" stroke-width="1" stroke-dasharray="6 4"/>
-      <circle cx="165" cy="165" r="148" stroke="rgba(162,28,175,.1)"  stroke-width="1"/>
-      <circle cx="165" cy="165" r="163" stroke="rgba(109,40,217,.06)" stroke-width="1" stroke-dasharray="3 7"/>
-    </svg>
-    <img src="Provenance.png" class="sp-logo" alt="Provenance"/>
-    <div class="sp-wave">
-      <svg width="300" height="48" viewBox="0 0 300 48" fill="none">
-        <path d="M0 24 Q5 24 8 24 Q10 7 12 24 Q14 41 16 24 Q18 11 20 24 Q22 34 24 24 Q26 11 28 24 Q30 6 32 24 Q34 40 36 24 Q38 11 40 24 Q42 34 44 24 Q46 10 48 24 Q50 38 52 24 Q54 13 56 24 Q58 7 60 24 Q62 38 64 24 Q66 13 68 24 Q70 34 72 24 Q74 11 76 24 Q78 7 80 24 Q82 38 84 24 Q86 14 88 24 Q90 34 92 24 Q94 10 96 24 Q98 38 100 24 Q102 13 104 24 Q106 34 108 24 Q110 11 112 24 Q114 7 116 24 Q118 38 120 24 Q122 14 124 24 Q126 34 128 24 Q130 10 132 24 Q134 40 136 24 Q138 13 140 24 Q142 32 144 24 Q146 11 148 24 Q150 7 152 24 Q154 38 156 24 Q158 14 160 24 Q162 34 164 24 Q166 11 168 24 Q170 7 172 24 Q174 38 176 24 Q178 14 180 24 Q182 34 184 24 Q186 10 188 24 Q190 40 192 24 Q194 13 196 24 Q198 34 200 24 Q202 11 204 24 Q206 7 208 24 Q210 38 212 24 Q214 14 216 24 Q218 34 220 24 Q222 10 224 24 Q226 36 228 24 Q230 13 232 24 Q234 32 236 24 Q238 11 240 24 Q242 7 244 24 Q246 38 248 24 Q250 14 252 24 Q254 32 256 24 Q258 11 260 24 Q262 40 264 24 Q266 13 268 24 Q270 34 272 24 Q274 11 276 24 Q278 38 280 24 Q282 14 284 24 Q286 32 288 24 Q290 11 292 24 L300 24" stroke="url(#swg)" stroke-width="1.2" stroke-linecap="round"/>
-        <defs><linearGradient id="swg" x1="0" y1="0" x2="300" y2="0"><stop offset="0%" stop-color="rgba(109,40,217,0)"/><stop offset="35%" stop-color="rgba(139,92,246,.9)"/><stop offset="65%" stop-color="rgba(162,28,175,.9)"/><stop offset="100%" stop-color="rgba(162,28,175,0)"/></linearGradient></defs>
-      </svg>
+
+    <div class="sp-wave-wrap">
+      <div class="sp-wave-inner">
+        <svg class="sp-wave-svg sw1" viewBox="0 0 800 200" preserveAspectRatio="none" fill="none">
+          <path d="M0,100 Q20,100 30,100 Q44,76 58,100 Q64,112 70,100 Q84,68 98,36 Q105,18 112,36 Q119,68 130,100 Q140,80 150,100 Q162,52 172,100 Q178,120 184,100 Q186,94 188,94 Q190,94 192,100 Q198,120 204,100 Q214,52 224,100 Q234,80 244,100 Q256,68 270,36 Q277,18 284,36 Q291,68 302,100 Q312,112 322,100 Q336,76 350,100 Q364,76 378,100 Q388,112 398,100 Q412,68 426,36 Q433,18 440,36 Q447,68 458,100 Q468,80 478,100 Q490,52 500,100 Q506,120 512,100 Q514,94 516,94 Q518,94 520,100 Q526,120 532,100 Q542,52 552,100 Q562,80 572,100 Q584,68 598,36 Q605,18 612,36 Q619,68 630,100 Q640,112 650,100 Q664,76 678,100 Q692,76 706,100 Q716,112 726,100 Q740,68 754,36 Q761,18 768,36 Q775,68 786,100 Q796,112 806,100 L800,100"
+            stroke="#6d28d9" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+        <svg class="sp-wave-svg sw2" viewBox="0 0 800 200" preserveAspectRatio="none" fill="none">
+          <path d="M0,100 Q20,100 30,100 Q44,76 58,100 Q64,112 70,100 Q84,68 98,36 Q105,18 112,36 Q119,68 130,100 Q140,80 150,100 Q162,52 172,100 Q178,120 184,100 Q186,94 188,94 Q190,94 192,100 Q198,120 204,100 Q214,52 224,100 Q234,80 244,100 Q256,68 270,36 Q277,18 284,36 Q291,68 302,100 Q312,112 322,100 Q336,76 350,100 Q364,76 378,100 Q388,112 398,100 Q412,68 426,36 Q433,18 440,36 Q447,68 458,100 Q468,80 478,100 Q490,52 500,100 Q506,120 512,100 Q514,94 516,94 Q518,94 520,100 Q526,120 532,100 Q542,52 552,100 Q562,80 572,100 Q584,68 598,36 Q605,18 612,36 Q619,68 630,100 Q640,112 650,100 Q664,76 678,100 Q692,76 706,100 Q716,112 726,100 Q740,68 754,36 Q761,18 768,36 Q775,68 786,100 Q796,112 806,100 L800,100"
+            stroke="#9333ea" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+        </svg>
+        <svg class="sp-wave-svg sw3" viewBox="0 0 800 200" preserveAspectRatio="none" fill="none">
+          <path d="M0,100 Q20,100 30,100 Q44,76 58,100 Q64,112 70,100 Q84,68 98,36 Q105,18 112,36 Q119,68 130,100 Q140,80 150,100 Q162,52 172,100 Q178,120 184,100 Q186,94 188,94 Q190,94 192,100 Q198,120 204,100 Q214,52 224,100 Q234,80 244,100 Q256,68 270,36 Q277,18 284,36 Q291,68 302,100 Q312,112 322,100 Q336,76 350,100 Q364,76 378,100 Q388,112 398,100 Q412,68 426,36 Q433,18 440,36 Q447,68 458,100 Q468,80 478,100 Q490,52 500,100 Q506,120 512,100 Q514,94 516,94 Q518,94 520,100 Q526,120 532,100 Q542,52 552,100 Q562,80 572,100 Q584,68 598,36 Q605,18 612,36 Q619,68 630,100 Q640,112 650,100 Q664,76 678,100 Q692,76 706,100 Q716,112 726,100 Q740,68 754,36 Q761,18 768,36 Q775,68 786,100 Q796,112 806,100 L800,100"
+            stroke="#c084fc" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+        </svg>
+      </div>
     </div>
-  </div>
+    </div>
   <div class="sp-content">
     <div class="sp-eyebrow">Music · Origins · Culture</div>
     <div class="sp-title">Pro<em>ven</em>ance</div>
