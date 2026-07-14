@@ -184,6 +184,17 @@ button { font-family:var(--fu); cursor:pointer; }
 @keyframes rspin { to { transform:translateX(-50%) rotate(360deg); } }
 .sp-rings circle { fill:none; }
 
+.sp-logo {
+  position:absolute; top:18%; left:50%;
+  transform:translateX(-50%);
+  width:min(62vw,250px); height:min(62vw,250px);
+  object-fit:contain;
+  border-radius:50%;
+  opacity:0.92;
+  filter:drop-shadow(0 0 24px rgba(139,92,246,.4));
+  z-index:1;
+}
+
 .sp-wave {
   position:absolute; bottom:44%; left:0; right:0;
   height:48px; opacity:.1;
@@ -773,6 +784,7 @@ button { font-family:var(--fu); cursor:pointer; }
       <circle cx="165" cy="165" r="148" stroke="rgba(162,28,175,.1)"  stroke-width="1"/>
       <circle cx="165" cy="165" r="163" stroke="rgba(109,40,217,.06)" stroke-width="1" stroke-dasharray="3 7"/>
     </svg>
+    <img src="Provenance.png" class="sp-logo" alt="Provenance"/>
     <div class="sp-wave">
       <svg width="300" height="48" viewBox="0 0 300 48" fill="none">
         <path d="M0 24 Q5 24 8 24 Q10 7 12 24 Q14 41 16 24 Q18 11 20 24 Q22 34 24 24 Q26 11 28 24 Q30 6 32 24 Q34 40 36 24 Q38 11 40 24 Q42 34 44 24 Q46 10 48 24 Q50 38 52 24 Q54 13 56 24 Q58 7 60 24 Q62 38 64 24 Q66 13 68 24 Q70 34 72 24 Q74 11 76 24 Q78 7 80 24 Q82 38 84 24 Q86 14 88 24 Q90 34 92 24 Q94 10 96 24 Q98 38 100 24 Q102 13 104 24 Q106 34 108 24 Q110 11 112 24 Q114 7 116 24 Q118 38 120 24 Q122 14 124 24 Q126 34 128 24 Q130 10 132 24 Q134 40 136 24 Q138 13 140 24 Q142 32 144 24 Q146 11 148 24 Q150 7 152 24 Q154 38 156 24 Q158 14 160 24 Q162 34 164 24 Q166 11 168 24 Q170 7 172 24 Q174 38 176 24 Q178 14 180 24 Q182 34 184 24 Q186 10 188 24 Q190 40 192 24 Q194 13 196 24 Q198 34 200 24 Q202 11 204 24 Q206 7 208 24 Q210 38 212 24 Q214 14 216 24 Q218 34 220 24 Q222 10 224 24 Q226 36 228 24 Q230 13 232 24 Q234 32 236 24 Q238 11 240 24 Q242 7 244 24 Q246 38 248 24 Q250 14 252 24 Q254 32 256 24 Q258 11 260 24 Q262 40 264 24 Q266 13 268 24 Q270 34 272 24 Q274 11 276 24 Q278 38 280 24 Q282 14 284 24 Q286 32 288 24 Q290 11 292 24 L300 24" stroke="url(#swg)" stroke-width="1.2" stroke-linecap="round"/>
