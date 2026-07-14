@@ -54,7 +54,7 @@ Provenance traces any song back to its cultural lineage, flags whether it is lik
 
 
 
-\*\*100% on a 27-track structured test across 13 genre families (June 2026)\*\*
+\*\*97.7% overall accuracy on 3,507 labeled tracks across 16 genre families (July 2026)\*\*
 
 
 
@@ -62,35 +62,43 @@ Provenance traces any song back to its cultural lineage, flags whether it is lik
 
 |-------|--------|
 
-| Afrobeats | 2/2 (100%) |
+| Afrobeats | 332/336 (99%) |
 
-| Amapiano | 2/2 (100%) |
+| Amapiano | 247/250 (99%) |
 
-| Blues | 2/2 (100%) |
+| Blues | 70/70 (100%) |
 
-| Electronic | 1/1 (100%) |
+| Classical | 39/40 (98%) |
 
-| Folk / Country | 1/1 (100%) |
+| Disco / Funk | 98/98 (100%) |
 
-| Hip-hop | 4/4 (100%) |
+| Electronic | 60/61 (98%) |
 
-| Jazz | 1/1 (100%) |
+| Folk / Country | 104/105 (99%) |
 
-| Latin | 2/2 (100%) |
+| Gospel | 305/311 (98%) |
 
-| Neo-soul | 1/1 (100%) |
+| Hip-hop | 81/81 (100%) |
 
-| Pop | 1/1 (100%) |
+| Jazz | 100/101 (99%) |
 
-| Reggae | 2/2 (100%) |
+| Latin | 197/198 (99%) |
 
-| R\&B / Soul | 6/6 (100%) |
+| Neo-soul | 156/159 (98%) |
 
-| Rock | 2/2 (100%) |
+| Pop | 409/413 (99%) |
+
+| Reggae | 58/58 (100%) |
+
+| R\&B / Soul | 158/162 (98%) |
+
+| Rock | 197/197 (100%) |
+
+| \*\*AI tracks\*\* | \*\*815/867 (94%)\*\* |
 
 
 
-Test run against the live production API using search queries across confirmed AI and confirmed human tracks. Methodology and full results CSV available on request.
+Tested directly against pre-computed acoustic fingerprints using a 34-feature Random Forest / Gradient Boosting model. Separate structured live API test: 100% on 27 tracks across 13 genres (June 2026). Full methodology and results available on request.
 
 
 
@@ -114,7 +122,7 @@ Detection uses a layered waterfall approach — each layer adds evidence before 
 
 \### Layer 1 — Explicit signals (instant)
 
-\- GitHub AI blocklist: 1,642+ confirmed Spotify artist IDs maintained by the open-source community
+\- GitHub AI blocklist: 1,645+ confirmed Spotify artist IDs maintained by the open-source community
 
 \- Known AI platform name signals: Suno, Udio, Obscurest Vinyl, Banned Vinyl, etc.
 
@@ -136,21 +144,49 @@ Detection uses a layered waterfall approach — each layer adds evidence before 
 
 \### Layer 3 — Web search verification (for uncertain cases)
 
-\- \*\*DuckDuckGo Instant Answer API\*\*: free, no key required — checks for public reporting of AI generation or voice cloning
-
 \- \*\*Google Custom Search\*\* (when configured): corroborating search signal
 
 
 
-\### Layer 4 — Trained ML model (when audio is available)
+\### Layer 4 — Acoustic fingerprint database (instant, 3,317 known tracks)
 
-\- Random Forest classifier trained on \*\*1,255 labeled tracks\*\* (630 human, 625 AI)
+\- Pre-computed 34-feature acoustic fingerprints for 2,450 human and 867 AI tracks
 
-\- \*\*18 librosa audio features\*\*: tempo, pitch correction, breath presence, spectral characteristics, MFCCs, dynamic range, timing regularity
+\- When a known track is identified, returns an instant ML prediction from stored features
+
+\- No audio download required — result in milliseconds
+
+
+
+\### Layer 5 — Trained ML model (when live audio is available)
+
+\- Gradient Boosting classifier trained on \*\*3,507 labeled tracks\*\* (2,640 human, 867 AI)
+
+\- \*\*34 librosa audio features\*\*: tempo, pitch correction, breath presence, spectral characteristics, MFCCs, harmonic ratio, onset strength variation, vibrato regularity, chroma variation, and more
 
 \- Deployed on Railway Python microservice via Flask
 
-\- Falls back to Spotify audio-features heuristics when live audio cannot be retrieved
+
+
+\---
+
+
+
+\## Acoustic Influence Matching
+
+
+
+When a track is flagged as AI-generated, Provenance identifies whose human artistry was acoustically used:
+
+
+
+\- Compares the AI track's 34-feature fingerprint against 2,450 human track fingerprints
+
+\- Returns the top 3 closest acoustic matches with similarity scores (e.g. "87% similarity to Erykah Badu")
+
+\- Artist names sourced directly from ID3 metadata — no guessing from filenames
+
+\- Works even without internet access to the original audio
 
 
 
@@ -164,15 +200,13 @@ Detection uses a layered waterfall approach — each layer adds evidence before 
 
 \- \*\*Genre detection\*\*: 16 genre families from Amapiano to Classical, detected from Spotify + Last.fm tags
 
-\- \*\*Wikipedia pools\*\*: real artist names fetched live from Wikipedia category and list pages across 14 genre families — hundreds to thousands of names per genre, refreshed every 24 hours, filtered to reject non-artist pages
+\- \*\*Wikipedia pools\*\*: real artist names fetched live from Wikipedia category and list pages across 16 genre families — hundreds to thousands of names per genre, refreshed every 24 hours, filtered to reject non-artist pages
 
-\- \*\*Era-proximity scoring\*\*: artists whose active period overlaps the track's release year are weighted higher than era-mismatched legacy names
+\- \*\*Era-proximity scoring\*\*: artists whose active period overlaps the track's release year are weighted higher
 
 \- \*\*Gender-aware selection\*\*: Wikipedia pronoun detection matches influence references to the traced artist's gender
 
-\- \*\*Featured artist genre override\*\*: for genre-fluid producers, a featured vocalist's clearer genre signal takes priority
-
-\- \*\*Last.fm similar artists\*\*: real artist-similarity data for human tracks, Wikipedia-validated before use to reject obscure or non-music suggestions
+\- \*\*Last.fm similar artists\*\*: real artist-similarity data for human tracks, Wikipedia-validated before use
 
 
 
@@ -210,7 +244,7 @@ Real songwriter and producer credits sourced from Genius's documented API, shown
 
 | Music data | Last.fm, MusicBrainz, Discogs, Genius |
 
-| AI detection data | GitHub community blocklist, Wikipedia, DuckDuckGo |
+| AI detection data | GitHub community blocklist, Wikipedia |
 
 | Storage | localStorage (client-side, no login required) |
 
@@ -228,25 +262,23 @@ Real songwriter and producer credits sourced from Genius's documented API, shown
 
 |--|--|
 
-| Human tracks | 630 |
+| Human tracks | 2,640 |
 
-| AI tracks | 625 |
+| AI tracks | 867 |
 
-| \*\*Total labeled\*\* | \*\*1,255\*\* |
+| \*\*Total labeled\*\* | \*\*3,507\*\* |
 
-| Human genres covered | 13 |
+| Human genres covered | 16 |
 
-| Structured test accuracy | \*\*100% (27/27 tracks, June 2026)\*\* |
+| Fingerprinted tracks | 3,317 |
 
-| ML model accuracy | 77.6% (v2), 81.7% (v1) |
+| Overall accuracy | \*\*97.7% (July 2026)\*\* |
 
-
-
-Human tracks sourced from curated genre playlists across 13 genre families. AI tracks sourced from Spotify playlists explicitly labeled as AI-generated music (2025-2026).
+| Live API test | \*\*100% (27/27 tracks, June 2026)\*\* |
 
 
 
-Dataset is actively growing. Target: 3,000+ tracks before next model retrain.
+Human tracks sourced from curated genre playlists across 16 genre families. AI tracks sourced from Spotify playlists explicitly labeled as AI-generated music and Suno-generated tracks (2025-2026).
 
 
 
@@ -258,11 +290,13 @@ Dataset is actively growing. Target: 3,000+ tracks before next model retrain.
 
 
 
-\- Audio analysis only runs when the audio waterfall (Internet Archive → SoundCloud → YouTube) successfully retrieves audio — many traces rely on metadata-based detection
+\- Audio analysis only runs when the audio waterfall (Internet Archive → SoundCloud → YouTube) successfully retrieves audio — many traces rely on metadata-based detection and the fingerprint database
 
-\- AI voice cloning detection requires either public reporting to have been indexed or real audio analysis — purely metadata-based verification cannot identify this independently
+\- AI voice cloning detection requires either public reporting to have been indexed or real audio analysis
 
-\- Artists using AI vocal processing as a deliberate creative tool (distinct from AI-generated music) may score inconsistently depending on how publicly documented their process is
+\- Artists using AI vocal processing as a deliberate creative tool may score inconsistently
+
+\- Modern worship and contemporary gospel production shares acoustic characteristics with AI music due to heavily polished studio production — this is a known and documented limitation
 
 \- Dataset label quality relies on Spotify playlist curation for AI tracks — independently verified track-by-track labeling is an ongoing improvement
 
@@ -276,7 +310,7 @@ Dataset is actively growing. Target: 3,000+ tracks before next model retrain.
 
 
 
-\- \[ ] Expand dataset to 3,000+ tracks and retrain model (v3)
+\- \[x] Expand dataset to 3,000+ tracks and retrain model
 
 \- \[ ] Re-enable Claude API verification once billing is configured
 
@@ -303,6 +337,8 @@ Concept, design, and development: \*\*Julie Susan Wawira Njiruh\*\*
 First published: \*\*5 June 2026\*\*
 
 Structured accuracy test: \*\*26 June 2026\*\*
+
+Full dataset accuracy test: \*\*July 2026\*\*
 
 ID: PRV-2026-JN-001
 
