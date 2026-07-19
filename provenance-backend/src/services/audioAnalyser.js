@@ -494,9 +494,22 @@ async function analyseCore(resolved, songData) {
     console.warn('Claude/Google/DuckDuckGo verification step failed:', err.message);
   }
 
-  // Step 3: Fast path was already confident either way and Claude/Google found nothing — use it
+  // Step 3: Fast path was already confident either way and Claude/Google found nothing — use it.
+  // Before returning, try to enrich with acoustic fingerprint influences from the Python service.
+  // This runs even for blocklist hits so Sienna Rose etc. get real influence matching.
   const isConfident = fastResult.aiLikelihoodScore >= 0.75 || fastResult.aiLikelihoodScore <= 0.20;
   if (isConfident) {
+    if (process.env.PYTHON_SERVICE_URL) {
+      try {
+        const fpResult = await callPythonFingerprintLookup(songData);
+        if (fpResult && fpResult.similarArtists && fpResult.similarArtists.length > 0) {
+          fastResult.similarArtists = fpResult.similarArtists;
+          fastResult.fingerprintMatch = fpResult.fingerprintMatch;
+        }
+      } catch (err) {
+        // Non-fatal — influences will fall back to Wikipedia pool
+      }
+    }
     return fastResult;
   }
 
@@ -558,6 +571,42 @@ async function analyse(resolved, songData) {
     ...coreResult,
     credits: credits && credits.found ? credits : null
   };
+}
+
+// Calls the Python service's fingerprint lookup endpoint directly
+// using just song title + artist — no audio needed.
+// Returns acoustic influence matches if the track is in the fingerprint DB.
+async function callPythonFingerprintLookup(songData) {
+  if (!process.env.PYTHON_SERVICE_URL) return null;
+  try {
+    const response = await axios.post(
+      `${process.env.PYTHON_SERVICE_URL}/analyse`,
+      {
+        input_type:   'fingerprint-only',
+        song_title:   songData.title   || '',
+        artist:       songData.artist  || '',
+        search_query: `${songData.title || ''} ${songData.artist || ''}`.trim()
+      },
+      { timeout: 6000 }
+    );
+    const data = response.data;
+    if (!data || data.source !== 'fingerprint-db') return null;
+
+    // Convert acoustic influences to similarArtists format
+    const similarArtists = (data.acousticInfluences || []).map(match => {
+      let name = (match.artist || match.filename || '')
+        .replace(/\.(mp3|wav|flac)$/i, '')
+        .replace(/_spotdown\.org.*/i, '')
+        .replace(/Best_of_\w+_/i, '')
+        .replace(/[_]+/g, ' ')
+        .trim();
+      return { name, similarity: match.similarity, genre: match.genre, source: 'acoustic-fingerprint' };
+    }).filter(a => a.name && a.name.length > 2);
+
+    return { similarArtists, fingerprintMatch: data.fingerprintMatch };
+  } catch (err) {
+    return null;
+  }
 }
 
 async function callPythonService(resolved, songData) {

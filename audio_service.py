@@ -102,6 +102,23 @@ def analyse():
     # Check our pre-computed feature database first. If this song's audio
     # features are already known from training data, return the ML
     # prediction immediately without going through the download waterfall.
+    # For fingerprint-only requests from the Node service, skip waterfall
+    if data.get('input_type') == 'fingerprint-only':
+        if FINGERPRINT_AVAILABLE and (song_title or artist):
+            logger.info(f"Fingerprint-only lookup: '{song_title}' by '{artist}'")
+            fp_result = fingerprint_lookup.lookup(song_title, artist)
+            if fp_result:
+                features = fp_result['features']
+                ai_score = fp_result['aiProbability']
+                result   = features_to_result(features, ai_score=ai_score, method='fingerprint-db')
+                result['audioSource']      = 'fingerprint-db'
+                result['fingerprintMatch'] = fp_result['matchedKey']
+                result['source']           = 'fingerprint-db'
+                if features:
+                    result['acousticInfluences'] = find_acoustic_influences(features, top_n=5)
+                return jsonify(result)
+        return jsonify({'source': 'none', 'method': 'fingerprint-not-found'})
+
     if FINGERPRINT_AVAILABLE and (song_title or artist):
         logger.info(f"Fingerprint lookup: title='{song_title}' artist='{artist}'")
         fp_result = fingerprint_lookup.lookup(song_title, artist)
