@@ -432,6 +432,18 @@ async function analyseCore(resolved, songData) {
     } catch (err) {
       console.warn('Claude clone-identification lookup failed:', err.message);
     }
+    // Enrich with acoustic fingerprint influences before returning
+    if (process.env.PYTHON_SERVICE_URL) {
+      try {
+        const fpResult = await callPythonFingerprintLookup(songData);
+        if (fpResult && fpResult.similarArtists && fpResult.similarArtists.length > 0) {
+          fastResult.similarArtists = fpResult.similarArtists;
+          fastResult.fingerprintMatch = fpResult.fingerprintMatch;
+        }
+      } catch (err) {
+        // Non-fatal
+      }
+    }
     return fastResult;
   }
 
