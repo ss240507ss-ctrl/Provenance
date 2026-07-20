@@ -114,8 +114,6 @@ def analyse():
                 result['audioSource']      = 'fingerprint-db'
                 result['fingerprintMatch'] = fp_result['matchedKey']
                 result['source']           = 'fingerprint-db'
-                if features:
-                    result['acousticInfluences'] = find_acoustic_influences(features, top_n=5)
                 return jsonify(result)
         return jsonify({'source': 'none', 'method': 'fingerprint-not-found'})
 
