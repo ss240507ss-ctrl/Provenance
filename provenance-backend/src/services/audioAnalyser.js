@@ -433,6 +433,7 @@ async function analyseCore(resolved, songData) {
       console.warn('Claude clone-identification lookup failed:', err.message);
     }
     // Enrich with acoustic fingerprint influences before returning
+    console.log(`[fingerprint] Attempting lookup for: ${songData.title} by ${songData.artist}`);
     if (process.env.PYTHON_SERVICE_URL) {
       try {
         const fpResult = await callPythonFingerprintLookup(songData);
