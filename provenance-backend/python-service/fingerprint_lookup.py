@@ -42,12 +42,32 @@ def _normalize_key(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+# Build a secondary index by search_key for fast title+artist lookup
+_search_index = {}
+
 def _load():
-    global _db, _model, _scaler
+    global _db, _model, _scaler, _search_index
     if os.path.exists(DB_PATH):
         with open(DB_PATH, 'r', encoding='utf-8') as f:
             _db = json.load(f)
-        print(f"Fingerprint DB loaded: {len(_db)} tracks (34-feature)")
+        # Build search index from stored search_key and artist+title fields
+        for filename_key, entry in _db.items():
+            # Index by stored search_key
+            sk = entry.get('search_key', '')
+            if sk:
+                _search_index[sk] = entry
+            # Also index by normalized artist+title
+            artist = entry.get('artist', '')
+            title  = entry.get('title', '')
+            if artist and title:
+                key1 = _normalize_key(f"{title} {artist}")
+                key2 = _normalize_key(f"{artist} {title}")
+                _search_index[key1] = entry
+                _search_index[key2] = entry
+            # Also index by title alone
+            if title:
+                _search_index[_normalize_key(title)] = entry
+        print(f"Fingerprint DB loaded: {len(_db)} tracks ({len(_search_index)} search keys)")
     else:
         print(f"WARNING: fingerprint_db.json not found at {DB_PATH}")
 
@@ -66,24 +86,30 @@ def lookup(title, artist):
 
     candidates = [
         _normalize_key(f"{title} {artist}"),
-        _normalize_key(title),
         _normalize_key(f"{artist} {title}"),
+        _normalize_key(title),
     ]
 
     matched_entry = None
+
+    # Check search index first (fast exact match)
     for key in candidates:
-        if key in _db:
-            matched_entry = _db[key]
+        if key in _search_index:
+            matched_entry = _search_index[key]
             break
-        key_words = set(key.split())
-        if len(key_words) >= 2:
-            for db_key, entry in _db.items():
-                db_words = set(db_key.split())
-                if key_words.issubset(db_words) or db_words.issubset(key_words):
-                    matched_entry = entry
-                    break
-        if matched_entry:
-            break
+
+    # Fuzzy fallback — check if candidate words are subset of any search key
+    if not matched_entry:
+        for key in candidates:
+            key_words = set(key.split())
+            if len(key_words) >= 2:
+                for sk, entry in _search_index.items():
+                    sk_words = set(sk.split())
+                    if key_words.issubset(sk_words) or sk_words.issubset(key_words):
+                        matched_entry = entry
+                        break
+            if matched_entry:
+                break
 
     if not matched_entry:
         return None
