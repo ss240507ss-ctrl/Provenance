@@ -133,7 +133,7 @@ def analyse():
                         ai_norm = (ai_vec - mean) / std
                         h_norm  = (h_vecs  - mean) / std
                         dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
-                        sims    = 1.0 - (dists / (dists.max() + 1e-6))
+                        sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
                         seen    = set()
                         for idx in np.argsort(dists):
                             entry  = human_entries[idx][1]
@@ -204,7 +204,7 @@ def analyse():
                     ai_norm = (ai_vec - mean) / std
                     h_norm  = (h_vecs  - mean) / std
                     dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
-                    sims    = 1.0 - (dists / (dists.max() + 1e-6))
+                    sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
                     seen    = set()
                     for idx in np.argsort(dists):
                         entry  = human_entries[idx][1]
