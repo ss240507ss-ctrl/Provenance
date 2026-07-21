@@ -114,6 +114,37 @@ def analyse():
                 result['audioSource']      = 'fingerprint-db'
                 result['fingerprintMatch'] = fp_result['matchedKey']
                 result['source']           = 'fingerprint-db'
+                # Find acoustically similar human tracks
+                try:
+                    import numpy as np
+                    features = fp_result['features']
+                    FEATURES = ['tempo','timing_regularity','pitch_correction','breath_presence',
+                        'dynamic_range_db','spectral_centroid','spectral_bandwidth','spectral_rolloff',
+                        'spectral_flatness','spectral_variation','zero_crossing_rate','rms_mean','rms_std',
+                        'mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8',
+                        'mfcc_9','mfcc_10','mfcc_11','mfcc_12','mfcc_13','harmonic_ratio',
+                        'onset_strength_mean','onset_strength_var','spectral_contrast_mean',
+                        'chroma_variation','tempo_stability','silence_ratio','vibrato_regularity']
+                    ai_vec = np.array([features.get(f, 0.0) for f in FEATURES], dtype=float)
+                    human_entries = [(k,v) for k,v in fingerprint_lookup._db.items() if v.get('label')=='human' and v.get('features')]
+                    human_vecs = np.array([[e.get('features',{}).get(f,0.0) for f in FEATURES] for _,e in human_entries], dtype=float)
+                    feat_mean = human_vecs.mean(axis=0)
+                    feat_std  = human_vecs.std(axis=0)
+                    feat_std[feat_std == 0] = 1.0
+                    ai_std     = (ai_vec - feat_mean) / feat_std
+                    human_std  = (human_vecs - feat_mean) / feat_std
+                    dists      = np.linalg.norm(human_std - ai_std, axis=1)
+                    max_dist   = dists.max()
+                    sims       = 1.0 - (dists / (max_dist + 1e-6))
+                    top3       = np.argsort(dists)[:3]
+                    influences = []
+                    for idx in top3:
+                        entry = human_entries[idx][1]
+                        artist = entry.get('artist') or entry.get('filename','')
+                        influences.append({'artist': artist, 'filename': entry.get('filename',''), 'similarity': float(sims[idx]), 'genre': entry.get('genre','')})
+                    result['acousticInfluences'] = influences
+                except Exception as e:
+                    logger.warning(f"Acoustic similarity failed: {e}")
                 return jsonify(result)
         return jsonify({'source': 'none', 'method': 'fingerprint-not-found'})
 
