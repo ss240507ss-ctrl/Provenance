@@ -590,8 +590,12 @@ async function analyse(resolved, songData) {
 // using just song title + artist — no audio needed.
 // Returns acoustic influence matches if the track is in the fingerprint DB.
 async function callPythonFingerprintLookup(songData) {
-  if (!process.env.PYTHON_SERVICE_URL) return null;
+  if (!process.env.PYTHON_SERVICE_URL) {
+    console.log('[fingerprint] No PYTHON_SERVICE_URL set');
+    return null;
+  }
   try {
+    console.log(`[fingerprint] Calling Python: ${process.env.PYTHON_SERVICE_URL}/analyse`);
     const response = await axios.post(
       `${process.env.PYTHON_SERVICE_URL}/analyse`,
       {
@@ -603,9 +607,9 @@ async function callPythonFingerprintLookup(songData) {
       { timeout: 6000 }
     );
     const data = response.data;
+    console.log(`[fingerprint] Python responded: source=${data.source} method=${data.method}`);
     if (!data || data.source !== 'fingerprint-db') return null;
 
-    // Convert acoustic influences to similarArtists format
     const similarArtists = (data.acousticInfluences || []).map(match => {
       let name = (match.artist || match.filename || '')
         .replace(/\.(mp3|wav|flac)$/i, '')
@@ -618,6 +622,7 @@ async function callPythonFingerprintLookup(songData) {
 
     return { similarArtists, fingerprintMatch: data.fingerprintMatch };
   } catch (err) {
+    console.log(`[fingerprint] Python call failed: ${err.message}`);
     return null;
   }
 }
