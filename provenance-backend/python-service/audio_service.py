@@ -59,16 +59,23 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+ALL_FEATURES = [
+    'tempo', 'timing_regularity', 'pitch_correction', 'breath_presence',
+    'dynamic_range_db', 'spectral_centroid', 'spectral_bandwidth', 'spectral_rolloff',
+    'spectral_flatness', 'spectral_variation', 'zero_crossing_rate', 'rms_mean', 'rms_std',
+    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5', 'mfcc_6', 'mfcc_7', 'mfcc_8',
+    'mfcc_9', 'mfcc_10', 'mfcc_11', 'mfcc_12', 'mfcc_13', 'harmonic_ratio',
+    'onset_strength_mean', 'onset_strength_var', 'spectral_contrast_mean',
+    'chroma_variation', 'tempo_stability', 'silence_ratio', 'vibrato_regularity'
+]
+
+# Features used by the trained model (18 core features)
 FEATURES = [
     'tempo', 'timing_regularity', 'pitch_correction', 'breath_presence',
     'dynamic_range_db', 'spectral_centroid', 'spectral_bandwidth',
     'spectral_rolloff', 'spectral_flatness', 'spectral_variation',
     'zero_crossing_rate', 'rms_mean', 'rms_std',
-    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5',
-    'mfcc_6', 'mfcc_7', 'mfcc_8', 'mfcc_9', 'mfcc_10',
-    'mfcc_11', 'mfcc_12', 'mfcc_13', 'harmonic_ratio',
-    'onset_strength_mean', 'onset_strength_var', 'spectral_contrast_mean',
-    'chroma_variation', 'tempo_stability', 'silence_ratio', 'vibrato_regularity'
+    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5'
 ]
 
 GENRE_MAP = {
@@ -90,6 +97,7 @@ GENRE_MAP = {
     'classical':    ['classical'],
 }
 
+
 @app.route('/health')
 def health():
     return jsonify({
@@ -100,14 +108,60 @@ def health():
         'fingerprint_db': fingerprint_lookup.stats() if FINGERPRINT_AVAILABLE else {'loaded': False}
     })
 
+
 @app.route('/fingerprint/stats')
 def fingerprint_stats():
     if not FINGERPRINT_AVAILABLE:
         return jsonify({'loaded': False, 'message': 'fingerprint_lookup module not available'})
     return jsonify(fingerprint_lookup.stats())
 
+
+def infer_genre_from_features(features):
+    """Use full 34-feature vector to find the closest human genre centroid."""
+    genre_vectors = {}
+    for k, v in fingerprint_lookup._db.items():
+        if v.get('label') != 'human' or not v.get('features'):
+            continue
+        g = v.get('genre', '').lower()
+        if not g:
+            continue
+        vec = np.array([v['features'].get(f, 0.0) for f in ALL_FEATURES], dtype=float)
+        if g not in genre_vectors:
+            genre_vectors[g] = []
+        genre_vectors[g].append(vec)
+
+    genre_centroids = {
+        g: np.mean(vecs, axis=0)
+        for g, vecs in genre_vectors.items()
+        if len(vecs) >= 5
+    }
+
+    track_vec  = np.array([features.get(f, 0.0) for f in ALL_FEATURES], dtype=float)
+    all_vecs   = np.array(list(genre_centroids.values()))
+    mean       = all_vecs.mean(axis=0)
+    std        = all_vecs.std(axis=0)
+    std[std == 0] = 1.0
+    track_norm = (track_vec - mean) / std
+
+    best_genre = 'rnb-soul'
+    best_dist  = float('inf')
+    for g, centroid in genre_centroids.items():
+        centroid_norm = (centroid - mean) / std
+        dist = np.linalg.norm(track_norm - centroid_norm)
+        if dist < best_dist:
+            best_dist  = dist
+            best_genre = g
+
+    logger.info(f"Genre inferred from full feature vector: {best_genre}")
+    return best_genre
+
+
 def get_genre_filtered_human_entries(fp_result):
-    track_genre    = fp_result.get('genre', '').lower()
+    track_genre = fp_result.get('musical_genre', fp_result.get('genre', '')).lower()
+
+    if track_genre in ('ai', '', 'unknown'):
+        track_genre = infer_genre_from_features(fp_result.get('features', {}))
+
     allowed_genres = GENRE_MAP.get(track_genre, None)
     entries = [
         (k, v) for k, v in fingerprint_lookup._db.items()
@@ -120,6 +174,7 @@ def get_genre_filtered_human_entries(fp_result):
             if v.get('label') == 'human' and v.get('features')
         ]
     return entries
+
 
 def compute_influences(features, human_entries):
     VOCAL      = ['pitch_correction', 'breath_presence', 'vibrato_regularity', 'harmonic_ratio']
@@ -168,6 +223,7 @@ def compute_influences(features, human_entries):
             influences.append(match)
     return influences
 
+
 @app.route('/analyse', methods=['POST'])
 def analyse():
     data         = request.json
@@ -192,7 +248,7 @@ def analyse():
                 result['fingerprintMatch'] = fp_result['matchedKey']
                 result['source']           = 'fingerprint-db'
                 try:
-                    human_entries            = get_genre_filtered_human_entries(fp_result)
+                    human_entries                = get_genre_filtered_human_entries(fp_result)
                     result['acousticInfluences'] = compute_influences(features, human_entries)
                     logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in result['acousticInfluences']]}")
                 except Exception as e:
@@ -274,15 +330,16 @@ def analyse():
             except Exception:
                 pass
 
+
 # ── Internet Archive search and download ───────────────────────────────────
 
 def download_from_archive_org(search_query):
     try:
         search_url = "https://archive.org/advancedsearch.php"
         params = {
-            'q':    f'({search_query}) AND mediatype:(audio)',
-            'fl[]': 'identifier',
-            'rows': 3,
+            'q':      f'({search_query}) AND mediatype:(audio)',
+            'fl[]':   'identifier',
+            'rows':   3,
             'output': 'json'
         }
         resp = requests.get(search_url, params=params, timeout=8)
@@ -330,6 +387,7 @@ def download_from_archive_org(search_query):
         logger.warning(f"Internet Archive search failed: {e}")
     return None
 
+
 # ── yt-dlp download ──────────────────────────────────────────────────────────
 
 def download_audio(url):
@@ -354,11 +412,13 @@ def download_audio(url):
         logger.warning(f"yt-dlp download failed: {e}")
     return None
 
+
 def safe_float(value):
     try:
         return float(np.asarray(value).item())
     except Exception:
         return 0.0
+
 
 def extract_features(audio_path):
     try:
@@ -366,8 +426,8 @@ def extract_features(audio_path):
         if len(y) < sr * 5:
             return None
 
-        tempo, beats    = librosa.beat.beat_track(y=y, sr=sr)
-        beat_intervals  = np.diff(beats)
+        tempo, beats   = librosa.beat.beat_track(y=y, sr=sr)
+        beat_intervals = np.diff(beats)
         if len(beat_intervals) > 0:
             timing_regularity = 1.0 - min(1.0, float(np.std(beat_intervals)) / (float(np.mean(beat_intervals)) + 1e-6))
         else:
@@ -395,12 +455,12 @@ def extract_features(audio_path):
         except Exception:
             pass
 
-        rms_flat   = np.array(rms).flatten()
-        mean_rms   = float(np.mean(rms_flat))
-        low_energy = rms_flat < (mean_rms * 0.3)
-        sf_flat    = np.array(spectral_flatness).flatten()
-        min_len    = min(len(low_energy), len(sf_flat))
-        n_low      = int(np.sum(low_energy[:min_len]))
+        rms_flat     = np.array(rms).flatten()
+        mean_rms     = float(np.mean(rms_flat))
+        low_energy   = rms_flat < (mean_rms * 0.3)
+        sf_flat      = np.array(spectral_flatness).flatten()
+        min_len      = min(len(low_energy), len(sf_flat))
+        n_low        = int(np.sum(low_energy[:min_len]))
         breath_score = float(np.mean(sf_flat[:min_len][low_energy[:min_len]] > 0.3)) if n_low > 5 else 0.1
 
         rms_db        = librosa.amplitude_to_db(rms)
@@ -432,12 +492,14 @@ def extract_features(audio_path):
         logger.error(f"Feature extraction error: {e}")
         return None
 
+
 def predict_with_model(features):
     feature_vector = np.array([[features[f] for f in FEATURES]])
     scaled         = AI_SCALER.transform(feature_vector)
     proba          = AI_MODEL.predict_proba(scaled)[0]
     ai_score       = float(proba[1])
     return features_to_result(features, ai_score=ai_score, method='trained-ml-model')
+
 
 def features_to_result(features, ai_score=None, method='librosa-audio-analysis'):
     if ai_score is None:
@@ -463,6 +525,7 @@ def features_to_result(features, ai_score=None, method='librosa-audio-analysis')
         'method':            method
     }
 
+
 def heuristic_analysis(song_title, artist):
     title_lower  = (song_title or '').lower()
     artist_lower = (artist or '').lower()
@@ -478,6 +541,7 @@ def heuristic_analysis(song_title, artist):
     return {'pitchCorrection': 'Moderate', 'breathPresence': 'Moderate', 'timingRegularity': 'Moderate',
             'spectralSmoothing': 'Moderate', 'dynamicRange': 'Moderate',
             'aiLikelihoodScore': 0.40, 'modelConfidence': 0.35, 'signalConfidence': 0.30, 'method': 'metadata-heuristics'}
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('AUDIO_SERVICE_PORT', 5001))
