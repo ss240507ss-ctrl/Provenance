@@ -99,10 +99,6 @@ def analyse():
     logger.info(f"Analysing: {song_title} by {artist}")
 
     # ── ROUND 0: Fingerprint database lookup (instant, no download) ─────
-    # Check our pre-computed feature database first. If this song's audio
-    # features are already known from training data, return the ML
-    # prediction immediately without going through the download waterfall.
-    # For fingerprint-only requests from the Node service, skip waterfall
     if data.get('input_type') == 'fingerprint-only':
         if FINGERPRINT_AVAILABLE and (song_title or artist):
             logger.info(f"Fingerprint-only lookup: '{song_title}' by '{artist}'")
@@ -114,37 +110,63 @@ def analyse():
                 result['audioSource']      = 'fingerprint-db'
                 result['fingerprintMatch'] = fp_result['matchedKey']
                 result['source']           = 'fingerprint-db'
-                # Find acoustically similar human tracks
+
                 try:
-                    import numpy as np
-                    features = fp_result['features']
-                    FEATURES = ['tempo','timing_regularity','pitch_correction','breath_presence',
-                        'dynamic_range_db','spectral_centroid','spectral_bandwidth','spectral_rolloff',
-                        'spectral_flatness','spectral_variation','zero_crossing_rate','rms_mean','rms_std',
-                        'mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8',
-                        'mfcc_9','mfcc_10','mfcc_11','mfcc_12','mfcc_13','harmonic_ratio',
-                        'onset_strength_mean','onset_strength_var','spectral_contrast_mean',
-                        'chroma_variation','tempo_stability','silence_ratio','vibrato_regularity']
-                    ai_vec = np.array([features.get(f, 0.0) for f in FEATURES], dtype=float)
-                    human_entries = [(k,v) for k,v in fingerprint_lookup._db.items() if v.get('label')=='human' and v.get('features')]
-                    human_vecs = np.array([[e.get('features',{}).get(f,0.0) for f in FEATURES] for _,e in human_entries], dtype=float)
-                    feat_mean = human_vecs.mean(axis=0)
-                    feat_std  = human_vecs.std(axis=0)
-                    feat_std[feat_std == 0] = 1.0
-                    ai_std     = (ai_vec - feat_mean) / feat_std
-                    human_std  = (human_vecs - feat_mean) / feat_std
-                    dists      = np.linalg.norm(human_std - ai_std, axis=1)
-                    max_dist   = dists.max()
-                    sims       = 1.0 - (dists / (max_dist + 1e-6))
-                    top3       = np.argsort(dists)[:3]
-                    influences = []
-                    for idx in top3:
-                        entry = human_entries[idx][1]
-                        artist = entry.get('artist') or entry.get('filename','')
-                        influences.append({'artist': artist, 'filename': entry.get('filename',''), 'similarity': float(sims[idx]), 'genre': entry.get('genre','')})
+                    VOCAL      = ['pitch_correction','breath_presence','vibrato_regularity','harmonic_ratio']
+                    RHYTHM     = ['tempo','timing_regularity','tempo_stability','onset_strength_mean','onset_strength_var','zero_crossing_rate']
+                    HARMONIC   = ['mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8','mfcc_9',
+                                  'chroma_variation','spectral_contrast_mean','spectral_centroid','spectral_bandwidth']
+                    PRODUCTION = ['dynamic_range_db','spectral_flatness','spectral_variation','spectral_rolloff',
+                                  'rms_mean','rms_std','mfcc_10','mfcc_11','mfcc_12','mfcc_13','silence_ratio']
+
+                    human_entries = [
+                        (k, v) for k, v in fingerprint_lookup._db.items()
+                        if v.get('label') == 'human' and v.get('features')
+                    ]
+
+                    def best_match_for_dimension(feat_set, dimension_label):
+                        ai_vec  = np.array([features.get(f, 0.0) for f in feat_set], dtype=float)
+                        h_vecs  = np.array([[e.get('features', {}).get(f, 0.0) for f in feat_set] for _, e in human_entries], dtype=float)
+                        mean    = h_vecs.mean(axis=0)
+                        std     = h_vecs.std(axis=0)
+                        std[std == 0] = 1.0
+                        ai_norm = (ai_vec - mean) / std
+                        h_norm  = (h_vecs  - mean) / std
+                        dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
+                        sims    = 1.0 - (dists / (dists.max() + 1e-6))
+                        seen    = set()
+                        for idx in np.argsort(dists):
+                            entry  = human_entries[idx][1]
+                            artist = entry.get('artist') or entry.get('filename', '')
+                            if artist not in seen:
+                                seen.add(artist)
+                                return {
+                                    'artist':     artist,
+                                    'filename':   entry.get('filename', ''),
+                                    'similarity': round(float(sims[idx]) * 100, 1),
+                                    'genre':      entry.get('genre', ''),
+                                    'dimension':  dimension_label
+                                }
+                        return None
+
+                    influences   = []
+                    seen_artists = set()
+                    for feat_set, label in [
+                        (VOCAL,      'vocal'),
+                        (RHYTHM,     'rhythm'),
+                        (HARMONIC,   'harmonic'),
+                        (PRODUCTION, 'production'),
+                    ]:
+                        match = best_match_for_dimension(feat_set, label)
+                        if match and match['artist'] not in seen_artists:
+                            seen_artists.add(match['artist'])
+                            influences.append(match)
+
                     result['acousticInfluences'] = influences
+                    logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in influences]}")
                 except Exception as e:
                     logger.warning(f"Acoustic similarity failed: {e}")
+
                 return jsonify(result)
         return jsonify({'source': 'none', 'method': 'fingerprint-not-found'})
 
@@ -155,9 +177,67 @@ def analyse():
             logger.info(f"Fingerprint DB hit: {fp_result['matchedKey']}")
             features = fp_result['features']
             ai_score = fp_result['aiProbability']
-            result = features_to_result(features, ai_score=ai_score, method='fingerprint-db')
-            result['audioSource'] = 'fingerprint-db'
+            result   = features_to_result(features, ai_score=ai_score, method='fingerprint-db')
+            result['audioSource']      = 'fingerprint-db'
             result['fingerprintMatch'] = fp_result['matchedKey']
+            result['source']           = 'fingerprint-db'
+
+            try:
+                VOCAL      = ['pitch_correction','breath_presence','vibrato_regularity','harmonic_ratio']
+                RHYTHM     = ['tempo','timing_regularity','tempo_stability','onset_strength_mean','onset_strength_var','zero_crossing_rate']
+                HARMONIC   = ['mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8','mfcc_9',
+                              'chroma_variation','spectral_contrast_mean','spectral_centroid','spectral_bandwidth']
+                PRODUCTION = ['dynamic_range_db','spectral_flatness','spectral_variation','spectral_rolloff',
+                              'rms_mean','rms_std','mfcc_10','mfcc_11','mfcc_12','mfcc_13','silence_ratio']
+
+                human_entries = [
+                    (k, v) for k, v in fingerprint_lookup._db.items()
+                    if v.get('label') == 'human' and v.get('features')
+                ]
+
+                def best_match_for_dimension(feat_set, dimension_label):
+                    ai_vec  = np.array([features.get(f, 0.0) for f in feat_set], dtype=float)
+                    h_vecs  = np.array([[e.get('features', {}).get(f, 0.0) for f in feat_set] for _, e in human_entries], dtype=float)
+                    mean    = h_vecs.mean(axis=0)
+                    std     = h_vecs.std(axis=0)
+                    std[std == 0] = 1.0
+                    ai_norm = (ai_vec - mean) / std
+                    h_norm  = (h_vecs  - mean) / std
+                    dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
+                    sims    = 1.0 - (dists / (dists.max() + 1e-6))
+                    seen    = set()
+                    for idx in np.argsort(dists):
+                        entry  = human_entries[idx][1]
+                        artist = entry.get('artist') or entry.get('filename', '')
+                        if artist not in seen:
+                            seen.add(artist)
+                            return {
+                                'artist':     artist,
+                                'filename':   entry.get('filename', ''),
+                                'similarity': round(float(sims[idx]) * 100, 1),
+                                'genre':      entry.get('genre', ''),
+                                'dimension':  dimension_label
+                            }
+                    return None
+
+                influences   = []
+                seen_artists = set()
+                for feat_set, label in [
+                    (VOCAL,      'vocal'),
+                    (RHYTHM,     'rhythm'),
+                    (HARMONIC,   'harmonic'),
+                    (PRODUCTION, 'production'),
+                ]:
+                    match = best_match_for_dimension(feat_set, label)
+                    if match and match['artist'] not in seen_artists:
+                        seen_artists.add(match['artist'])
+                        influences.append(match)
+
+                result['acousticInfluences'] = influences
+                logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in influences]}")
+            except Exception as e:
+                logger.warning(f"Acoustic similarity failed: {e}")
+
             return jsonify(result)
 
     audio_path  = None

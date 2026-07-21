@@ -608,6 +608,10 @@ async function callPythonFingerprintLookup(songData) {
     );
     const data = response.data;
     console.log(`[fingerprint] Python responded: source=${data.source} method=${data.method}`);
+    console.log(`[fingerprint] acousticInfluences count: ${(data.acousticInfluences||[]).length}`);
+    if (data.acousticInfluences && data.acousticInfluences.length > 0) {
+      console.log(`[fingerprint] Top match: ${JSON.stringify(data.acousticInfluences[0])}`);
+    }
     if (!data || data.source !== 'fingerprint-db') return null;
 
     const similarArtists = (data.acousticInfluences || []).map(match => {
