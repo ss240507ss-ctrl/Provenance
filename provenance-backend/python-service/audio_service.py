@@ -41,10 +41,6 @@ try:
 except Exception as e:
     print(f"Could not load model: {e}")
 
-# ── Fingerprint database lookup ────────────────────────────────────────────
-# Pre-computed acoustic features from 1,192 labeled tracks. When a song
-# is identified by title + artist, we look it up here first — instant
-# ML prediction from real audio features, no download needed.
 FINGERPRINT_AVAILABLE = False
 try:
     import fingerprint_lookup
@@ -68,16 +64,39 @@ FEATURES = [
     'dynamic_range_db', 'spectral_centroid', 'spectral_bandwidth',
     'spectral_rolloff', 'spectral_flatness', 'spectral_variation',
     'zero_crossing_rate', 'rms_mean', 'rms_std',
-    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5'
+    'mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5',
+    'mfcc_6', 'mfcc_7', 'mfcc_8', 'mfcc_9', 'mfcc_10',
+    'mfcc_11', 'mfcc_12', 'mfcc_13', 'harmonic_ratio',
+    'onset_strength_mean', 'onset_strength_var', 'spectral_contrast_mean',
+    'chroma_variation', 'tempo_stability', 'silence_ratio', 'vibrato_regularity'
 ]
+
+GENRE_MAP = {
+    'neo-soul':     ['neo-soul', 'rnb-soul'],
+    'rnb-soul':     ['neo-soul', 'rnb-soul'],
+    'afrobeats':    ['afrobeats', 'amapiano'],
+    'amapiano':     ['afrobeats', 'amapiano'],
+    'hiphop':       ['hiphop'],
+    'pop':          ['pop'],
+    'rock':         ['rock'],
+    'jazz':         ['jazz'],
+    'gospel':       ['gospel'],
+    'latin':        ['latin'],
+    'folk-country': ['folk-country'],
+    'disco-funk':   ['disco-funk'],
+    'blues':        ['blues'],
+    'electronic':   ['electronic'],
+    'reggae':       ['reggae'],
+    'classical':    ['classical'],
+}
 
 @app.route('/health')
 def health():
     return jsonify({
-        'status':        'ok',
-        'librosa':       LIBROSA_AVAILABLE,
-        'trained_model': MODEL_AVAILABLE,
-        'yt_dlp':        YTDLP_AVAILABLE,
+        'status':         'ok',
+        'librosa':        LIBROSA_AVAILABLE,
+        'trained_model':  MODEL_AVAILABLE,
+        'yt_dlp':         YTDLP_AVAILABLE,
         'fingerprint_db': fingerprint_lookup.stats() if FINGERPRINT_AVAILABLE else {'loaded': False}
     })
 
@@ -86,6 +105,68 @@ def fingerprint_stats():
     if not FINGERPRINT_AVAILABLE:
         return jsonify({'loaded': False, 'message': 'fingerprint_lookup module not available'})
     return jsonify(fingerprint_lookup.stats())
+
+def get_genre_filtered_human_entries(fp_result):
+    track_genre    = fp_result.get('genre', '').lower()
+    allowed_genres = GENRE_MAP.get(track_genre, None)
+    entries = [
+        (k, v) for k, v in fingerprint_lookup._db.items()
+        if v.get('label') == 'human' and v.get('features')
+        and (allowed_genres is None or v.get('genre', '').lower() in allowed_genres)
+    ]
+    if len(entries) < 20:
+        entries = [
+            (k, v) for k, v in fingerprint_lookup._db.items()
+            if v.get('label') == 'human' and v.get('features')
+        ]
+    return entries
+
+def compute_influences(features, human_entries):
+    VOCAL      = ['pitch_correction', 'breath_presence', 'vibrato_regularity', 'harmonic_ratio']
+    RHYTHM     = ['tempo', 'timing_regularity', 'tempo_stability', 'onset_strength_mean', 'onset_strength_var', 'zero_crossing_rate']
+    HARMONIC   = ['mfcc_1', 'mfcc_2', 'mfcc_3', 'mfcc_4', 'mfcc_5', 'mfcc_6', 'mfcc_7', 'mfcc_8', 'mfcc_9',
+                  'chroma_variation', 'spectral_contrast_mean', 'spectral_centroid', 'spectral_bandwidth']
+    PRODUCTION = ['dynamic_range_db', 'spectral_flatness', 'spectral_variation', 'spectral_rolloff',
+                  'rms_mean', 'rms_std', 'mfcc_10', 'mfcc_11', 'mfcc_12', 'mfcc_13', 'silence_ratio']
+
+    def best_match_for_dimension(feat_set, dimension_label):
+        ai_vec  = np.array([features.get(f, 0.0) for f in feat_set], dtype=float)
+        h_vecs  = np.array([[e.get('features', {}).get(f, 0.0) for f in feat_set] for _, e in human_entries], dtype=float)
+        mean    = h_vecs.mean(axis=0)
+        std     = h_vecs.std(axis=0)
+        std[std == 0] = 1.0
+        ai_norm = (ai_vec - mean) / std
+        h_norm  = (h_vecs  - mean) / std
+        dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
+        sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
+        seen    = set()
+        for idx in np.argsort(dists):
+            entry  = human_entries[idx][1]
+            artist = entry.get('artist') or entry.get('filename', '')
+            if artist not in seen:
+                seen.add(artist)
+                return {
+                    'artist':     artist,
+                    'filename':   entry.get('filename', ''),
+                    'similarity': round(float(sims[idx]) * 100, 1),
+                    'genre':      entry.get('genre', ''),
+                    'dimension':  dimension_label
+                }
+        return None
+
+    influences   = []
+    seen_artists = set()
+    for feat_set, label in [
+        (VOCAL,      'vocal'),
+        (RHYTHM,     'rhythm'),
+        (HARMONIC,   'harmonic'),
+        (PRODUCTION, 'production'),
+    ]:
+        match = best_match_for_dimension(feat_set, label)
+        if match and match['artist'] not in seen_artists:
+            seen_artists.add(match['artist'])
+            influences.append(match)
+    return influences
 
 @app.route('/analyse', methods=['POST'])
 def analyse():
@@ -110,63 +191,12 @@ def analyse():
                 result['audioSource']      = 'fingerprint-db'
                 result['fingerprintMatch'] = fp_result['matchedKey']
                 result['source']           = 'fingerprint-db'
-
                 try:
-                    VOCAL      = ['pitch_correction','breath_presence','vibrato_regularity','harmonic_ratio']
-                    RHYTHM     = ['tempo','timing_regularity','tempo_stability','onset_strength_mean','onset_strength_var','zero_crossing_rate']
-                    HARMONIC   = ['mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8','mfcc_9',
-                                  'chroma_variation','spectral_contrast_mean','spectral_centroid','spectral_bandwidth']
-                    PRODUCTION = ['dynamic_range_db','spectral_flatness','spectral_variation','spectral_rolloff',
-                                  'rms_mean','rms_std','mfcc_10','mfcc_11','mfcc_12','mfcc_13','silence_ratio']
-
-                    human_entries = [
-                        (k, v) for k, v in fingerprint_lookup._db.items()
-                        if v.get('label') == 'human' and v.get('features')
-                    ]
-
-                    def best_match_for_dimension(feat_set, dimension_label):
-                        ai_vec  = np.array([features.get(f, 0.0) for f in feat_set], dtype=float)
-                        h_vecs  = np.array([[e.get('features', {}).get(f, 0.0) for f in feat_set] for _, e in human_entries], dtype=float)
-                        mean    = h_vecs.mean(axis=0)
-                        std     = h_vecs.std(axis=0)
-                        std[std == 0] = 1.0
-                        ai_norm = (ai_vec - mean) / std
-                        h_norm  = (h_vecs  - mean) / std
-                        dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
-                        sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
-                        seen    = set()
-                        for idx in np.argsort(dists):
-                            entry  = human_entries[idx][1]
-                            artist = entry.get('artist') or entry.get('filename', '')
-                            if artist not in seen:
-                                seen.add(artist)
-                                return {
-                                    'artist':     artist,
-                                    'filename':   entry.get('filename', ''),
-                                    'similarity': round(float(sims[idx]) * 100, 1),
-                                    'genre':      entry.get('genre', ''),
-                                    'dimension':  dimension_label
-                                }
-                        return None
-
-                    influences   = []
-                    seen_artists = set()
-                    for feat_set, label in [
-                        (VOCAL,      'vocal'),
-                        (RHYTHM,     'rhythm'),
-                        (HARMONIC,   'harmonic'),
-                        (PRODUCTION, 'production'),
-                    ]:
-                        match = best_match_for_dimension(feat_set, label)
-                        if match and match['artist'] not in seen_artists:
-                            seen_artists.add(match['artist'])
-                            influences.append(match)
-
-                    result['acousticInfluences'] = influences
-                    logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in influences]}")
+                    human_entries            = get_genre_filtered_human_entries(fp_result)
+                    result['acousticInfluences'] = compute_influences(features, human_entries)
+                    logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in result['acousticInfluences']]}")
                 except Exception as e:
                     logger.warning(f"Acoustic similarity failed: {e}")
-
                 return jsonify(result)
         return jsonify({'source': 'none', 'method': 'fingerprint-not-found'})
 
@@ -181,76 +211,25 @@ def analyse():
             result['audioSource']      = 'fingerprint-db'
             result['fingerprintMatch'] = fp_result['matchedKey']
             result['source']           = 'fingerprint-db'
-
             try:
-                VOCAL      = ['pitch_correction','breath_presence','vibrato_regularity','harmonic_ratio']
-                RHYTHM     = ['tempo','timing_regularity','tempo_stability','onset_strength_mean','onset_strength_var','zero_crossing_rate']
-                HARMONIC   = ['mfcc_1','mfcc_2','mfcc_3','mfcc_4','mfcc_5','mfcc_6','mfcc_7','mfcc_8','mfcc_9',
-                              'chroma_variation','spectral_contrast_mean','spectral_centroid','spectral_bandwidth']
-                PRODUCTION = ['dynamic_range_db','spectral_flatness','spectral_variation','spectral_rolloff',
-                              'rms_mean','rms_std','mfcc_10','mfcc_11','mfcc_12','mfcc_13','silence_ratio']
-
-                human_entries = [
-                    (k, v) for k, v in fingerprint_lookup._db.items()
-                    if v.get('label') == 'human' and v.get('features')
-                ]
-
-                def best_match_for_dimension(feat_set, dimension_label):
-                    ai_vec  = np.array([features.get(f, 0.0) for f in feat_set], dtype=float)
-                    h_vecs  = np.array([[e.get('features', {}).get(f, 0.0) for f in feat_set] for _, e in human_entries], dtype=float)
-                    mean    = h_vecs.mean(axis=0)
-                    std     = h_vecs.std(axis=0)
-                    std[std == 0] = 1.0
-                    ai_norm = (ai_vec - mean) / std
-                    h_norm  = (h_vecs  - mean) / std
-                    dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
-                    sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
-                    seen    = set()
-                    for idx in np.argsort(dists):
-                        entry  = human_entries[idx][1]
-                        artist = entry.get('artist') or entry.get('filename', '')
-                        if artist not in seen:
-                            seen.add(artist)
-                            return {
-                                'artist':     artist,
-                                'filename':   entry.get('filename', ''),
-                                'similarity': round(float(sims[idx]) * 100, 1),
-                                'genre':      entry.get('genre', ''),
-                                'dimension':  dimension_label
-                            }
-                    return None
-
-                influences   = []
-                seen_artists = set()
-                for feat_set, label in [
-                    (VOCAL,      'vocal'),
-                    (RHYTHM,     'rhythm'),
-                    (HARMONIC,   'harmonic'),
-                    (PRODUCTION, 'production'),
-                ]:
-                    match = best_match_for_dimension(feat_set, label)
-                    if match and match['artist'] not in seen_artists:
-                        seen_artists.add(match['artist'])
-                        influences.append(match)
-
-                result['acousticInfluences'] = influences
-                logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in influences]}")
+                human_entries                = get_genre_filtered_human_entries(fp_result)
+                result['acousticInfluences'] = compute_influences(features, human_entries)
+                logger.info(f"Influences: {[i['artist']+'('+i['dimension']+')' for i in result['acousticInfluences']]}")
             except Exception as e:
                 logger.warning(f"Acoustic similarity failed: {e}")
-
             return jsonify(result)
 
     audio_path  = None
     source_used = None
 
     try:
-        # ── ROUND 1: Direct URL (if YouTube/SoundCloud link given) ──────
+        # ── ROUND 1: Direct URL ──────────────────────────────────────────
         if url and YTDLP_AVAILABLE and input_type in ('youtube', 'soundcloud'):
             audio_path = download_audio(url)
             if audio_path:
                 source_used = 'direct-url'
 
-        # ── ROUND 2: Internet Archive (free, no bot detection) ──────────
+        # ── ROUND 2: Internet Archive ────────────────────────────────────
         if not audio_path and search_query:
             audio_path = download_from_archive_org(search_query)
             if audio_path:
@@ -262,7 +241,7 @@ def analyse():
             if audio_path:
                 source_used = 'soundcloud-search'
 
-        # ── ROUND 4: YouTube search (often blocked but worth trying) ────
+        # ── ROUND 4: YouTube search ──────────────────────────────────────
         if not audio_path and YTDLP_AVAILABLE and search_query:
             audio_path = download_audio(f"ytsearch1:{search_query}")
             if audio_path:
@@ -298,11 +277,10 @@ def analyse():
 # ── Internet Archive search and download ───────────────────────────────────
 
 def download_from_archive_org(search_query):
-    """Search Internet Archive for a track and download audio if found."""
     try:
         search_url = "https://archive.org/advancedsearch.php"
         params = {
-            'q': f'({search_query}) AND mediatype:(audio)',
+            'q':    f'({search_query}) AND mediatype:(audio)',
             'fl[]': 'identifier',
             'rows': 3,
             'output': 'json'
@@ -320,13 +298,12 @@ def download_from_archive_org(search_query):
             if not identifier:
                 continue
 
-            # Get file listing for this item
-            meta_url = f"https://archive.org/metadata/{identifier}"
+            meta_url  = f"https://archive.org/metadata/{identifier}"
             meta_resp = requests.get(meta_url, timeout=8)
             if meta_resp.status_code != 200:
                 continue
 
-            files = meta_resp.json().get('files', [])
+            files      = meta_resp.json().get('files', [])
             audio_file = next(
                 (f for f in files if f.get('name', '').lower().endswith(('.mp3', '.ogg', '.flac'))),
                 None
@@ -334,12 +311,12 @@ def download_from_archive_org(search_query):
             if not audio_file:
                 continue
 
-            file_url = f"https://archive.org/download/{identifier}/{audio_file['name']}"
+            file_url   = f"https://archive.org/download/{identifier}/{audio_file['name']}"
             audio_resp = requests.get(file_url, timeout=15, stream=True)
             if audio_resp.status_code == 200:
-                tmp = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                tmp        = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
                 downloaded = 0
-                max_bytes  = 5 * 1024 * 1024  # Cap at 5MB (~30-60s of audio)
+                max_bytes  = 5 * 1024 * 1024
                 for chunk in audio_resp.iter_content(chunk_size=8192):
                     tmp.write(chunk)
                     downloaded += len(chunk)
@@ -353,19 +330,19 @@ def download_from_archive_org(search_query):
         logger.warning(f"Internet Archive search failed: {e}")
     return None
 
-# ── yt-dlp download (YouTube/SoundCloud) ────────────────────────────────────
+# ── yt-dlp download ──────────────────────────────────────────────────────────
 
 def download_audio(url):
     try:
         tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         tmp.close()
         ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': tmp.name.replace('.wav', ''),
+            'format':         'bestaudio/best',
+            'outtmpl':        tmp.name.replace('.wav', ''),
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'wav'}],
-            'quiet': True,
-            'no_warnings': True,
-            'noplaylist': True,
+            'quiet':          True,
+            'no_warnings':    True,
+            'noplaylist':     True,
             'socket_timeout': 10,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -389,8 +366,8 @@ def extract_features(audio_path):
         if len(y) < sr * 5:
             return None
 
-        tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
-        beat_intervals = np.diff(beats)
+        tempo, beats    = librosa.beat.beat_track(y=y, sr=sr)
+        beat_intervals  = np.diff(beats)
         if len(beat_intervals) > 0:
             timing_regularity = 1.0 - min(1.0, float(np.std(beat_intervals)) / (float(np.mean(beat_intervals)) + 1e-6))
         else:
@@ -401,19 +378,19 @@ def extract_features(audio_path):
         spectral_rolloff   = librosa.feature.spectral_rolloff(y=y, sr=sr)
         spectral_flatness  = librosa.feature.spectral_flatness(y=y)
         zero_crossing_rate = librosa.feature.zero_crossing_rate(y)
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        rms   = librosa.feature.rms(y=y)
+        mfccs              = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        rms                = librosa.feature.rms(y=y)
 
         pitch_correction = 0.5
         try:
             f0, voiced_flag, _ = librosa.pyin(y, fmin=float(librosa.note_to_hz('C2')), fmax=float(librosa.note_to_hz('C7')))
             if f0 is not None and voiced_flag is not None:
-                mask = np.array(voiced_flag, dtype=bool)
+                mask      = np.array(voiced_flag, dtype=bool)
                 voiced_f0 = f0[mask]
                 voiced_f0 = voiced_f0[~np.isnan(voiced_f0)]
                 if len(voiced_f0) > 10:
-                    semitones = 12.0 * np.log2(voiced_f0 / 440.0 + 1e-6)
-                    deviation = np.abs(semitones - np.round(semitones))
+                    semitones        = 12.0 * np.log2(voiced_f0 / 440.0 + 1e-6)
+                    deviation        = np.abs(semitones - np.round(semitones))
                     pitch_correction = max(0.0, min(1.0, 1.0 - (float(np.mean(deviation)) / 0.5)))
         except Exception:
             pass
@@ -428,8 +405,8 @@ def extract_features(audio_path):
 
         rms_db        = librosa.amplitude_to_db(rms)
         dynamic_range = float(np.percentile(rms_db, 95)) - float(np.percentile(rms_db, 5))
-        sc_mean = float(np.mean(spectral_centroid))
-        sc_std  = float(np.std(spectral_centroid))
+        sc_mean       = float(np.mean(spectral_centroid))
+        sc_std        = float(np.std(spectral_centroid))
 
         return {
             'tempo':              safe_float(tempo),
@@ -457,9 +434,9 @@ def extract_features(audio_path):
 
 def predict_with_model(features):
     feature_vector = np.array([[features[f] for f in FEATURES]])
-    scaled = AI_SCALER.transform(feature_vector)
-    proba  = AI_MODEL.predict_proba(scaled)[0]
-    ai_score = float(proba[1])
+    scaled         = AI_SCALER.transform(feature_vector)
+    proba          = AI_MODEL.predict_proba(scaled)[0]
+    ai_score       = float(proba[1])
     return features_to_result(features, ai_score=ai_score, method='trained-ml-model')
 
 def features_to_result(features, ai_score=None, method='librosa-audio-analysis'):
@@ -475,10 +452,10 @@ def features_to_result(features, ai_score=None, method='librosa-audio-analysis')
         return labels[min(int(score * len(labels)), len(labels) - 1)]
 
     return {
-        'pitchCorrection':   to_label(features['pitch_correction'],  ['Low','Low-Moderate','Moderate','Moderate-High','High']),
-        'breathPresence':    to_label(1-features['breath_presence'],  ['High','Moderate-High','Moderate','Low-Moderate','Low']),
-        'timingRegularity':  to_label(features['timing_regularity'],  ['Low','Low-Moderate','Moderate','High','Very High']),
-        'spectralSmoothing': to_label(features['spectral_flatness'],  ['Low','Low-Moderate','Moderate','Moderate-High','High']),
+        'pitchCorrection':   to_label(features['pitch_correction'],  ['Low', 'Low-Moderate', 'Moderate', 'Moderate-High', 'High']),
+        'breathPresence':    to_label(1-features['breath_presence'],  ['High', 'Moderate-High', 'Moderate', 'Low-Moderate', 'Low']),
+        'timingRegularity':  to_label(features['timing_regularity'],  ['Low', 'Low-Moderate', 'Moderate', 'High', 'Very High']),
+        'spectralSmoothing': to_label(features['spectral_flatness'],  ['Low', 'Low-Moderate', 'Moderate', 'Moderate-High', 'High']),
         'dynamicRange':      'Compressed' if features['dynamic_range_db'] < 10 else 'Moderate' if features['dynamic_range_db'] < 20 else 'Wide',
         'aiLikelihoodScore': float(ai_score),
         'modelConfidence':   0.85 if MODEL_AVAILABLE else 0.72,
@@ -494,13 +471,13 @@ def heuristic_analysis(song_title, artist):
     is_ai = any(p in title_lower or p in artist_lower for p in ai_platforms)
 
     if is_ai:
-        return {'pitchCorrection':'High','breathPresence':'Low','timingRegularity':'High',
-                'spectralSmoothing':'High','dynamicRange':'Compressed',
-                'aiLikelihoodScore':0.82,'modelConfidence':0.55,'signalConfidence':0.50,'method':'metadata-heuristics'}
+        return {'pitchCorrection': 'High', 'breathPresence': 'Low', 'timingRegularity': 'High',
+                'spectralSmoothing': 'High', 'dynamicRange': 'Compressed',
+                'aiLikelihoodScore': 0.82, 'modelConfidence': 0.55, 'signalConfidence': 0.50, 'method': 'metadata-heuristics'}
 
-    return {'pitchCorrection':'Moderate','breathPresence':'Moderate','timingRegularity':'Moderate',
-            'spectralSmoothing':'Moderate','dynamicRange':'Moderate',
-            'aiLikelihoodScore':0.40,'modelConfidence':0.35,'signalConfidence':0.30,'method':'metadata-heuristics'}
+    return {'pitchCorrection': 'Moderate', 'breathPresence': 'Moderate', 'timingRegularity': 'Moderate',
+            'spectralSmoothing': 'Moderate', 'dynamicRange': 'Moderate',
+            'aiLikelihoodScore': 0.40, 'modelConfidence': 0.35, 'signalConfidence': 0.30, 'method': 'metadata-heuristics'}
 
 if __name__ == '__main__':
     port = int(os.environ.get('AUDIO_SERVICE_PORT', 5001))
