@@ -381,7 +381,7 @@ async function trace(songData, spotifyData, productionSignals) {
   const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year, featuredArtistNames, artistGender);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
-  const humanContribution = assessHumanContribution(productionSignals);
+  const humanContribution = assessHumanContribution(productionSignals, productionSignals.credits);
   const artistRecognition = buildArtistRecognition(influences, artist);
   const influenceScores = influences.map(inf => ({ name: inf.name, score: inf.score, type: inf.type }));
 
@@ -828,11 +828,12 @@ function isGenreFluidArtist(genres) {
   return familiesPresent.length >= 3;
 }
 
-function assessHumanContribution(productionSignals) {
+function assessHumanContribution(productionSignals, credits) {
   const ai = productionSignals.aiLikelihoodScore;
+  const hasHumanWriters = credits && credits.writers && credits.writers.length > 0;
   return {
-    songwriting: ai > 0.80 ? 'AI-generated' : ai > 0.65 ? 'Mixed indicators' : 'Human-led',
-composition: ai > 0.80 ? 'AI-generated' : ai > 0.65 ? 'Mixed indicators' : 'Human-led',
+    songwriting:      hasHumanWriters ? 'Human-led' : ai > 0.80 ? 'Mixed indicators' : 'Human-led',
+    composition:      hasHumanWriters ? 'Human-led' : ai > 0.80 ? 'Mixed indicators' : 'Human-led',
     vocalPerformance: ai > 0.80 ? 'AI-assisted' : ai > 0.65 ? 'Mixed indicators' : 'Likely human',
     production:       ai > 0.65 ? 'AI-assisted' : ai > 0.35 ? 'Mixed indicators' : 'Human-led',
     mixingMastering:  ai > 0.85 ? 'Mixed indicators' : 'Human-led'
