@@ -194,7 +194,6 @@ def compute_influences(features, human_entries):
         h_norm  = (h_vecs  - mean) / std
         dists   = np.linalg.norm(h_norm - ai_norm, axis=1)
         sims    = 1.0 - np.clip(dists / (dists.max() + 1e-6), 0.0, 1.0)
-logger.info(f"DEBUG sims raw: max={float(sims.max()):.4f} min={float(sims.min()):.4f} idx0={float(sims[np.argsort(dists)[0]]):.4f}")
         seen    = set()
         for idx in np.argsort(dists):
             entry  = human_entries[idx][1]
