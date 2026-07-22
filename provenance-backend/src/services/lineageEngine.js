@@ -576,8 +576,8 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
       hasEstate: false,
       type: isAiTrack ? 'Vocal/production similarity (audio-matched)' : guessInfluenceType(genreFamily),
       description: isAiTrack
-        ? `Audio analysis found this track's vocal and production characteristics closely resemble ${a.name} (${Math.round(a.similarity * 100)}% similarity).`
-        : `${a.name} shares strong sonic and stylistic characteristics with this track (${Math.round(a.similarity * 100)}% similarity).`,
+  ? `Audio analysis found this track's vocal and production characteristics closely resemble ${a.name} (${Math.round(a.similarity)}% similarity).`
+        : `${a.name} shares strong sonic and stylistic characteristics with this track (${Math.round(a.similarity)}% similarity).`,
       score: weights[i] || 0.05,
       displayPercentage: [65, 20, 10][i] || 5
     }));
