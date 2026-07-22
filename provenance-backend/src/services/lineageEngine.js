@@ -831,8 +831,8 @@ function isGenreFluidArtist(genres) {
 function assessHumanContribution(productionSignals) {
   const ai = productionSignals.aiLikelihoodScore;
   return {
-    songwriting:      'Human-led',
-    composition:      'Human-led',
+    songwriting: ai > 0.80 ? 'AI-generated' : ai > 0.65 ? 'Mixed indicators' : 'Human-led',
+composition: ai > 0.80 ? 'AI-generated' : ai > 0.65 ? 'Mixed indicators' : 'Human-led',
     vocalPerformance: ai > 0.80 ? 'AI-assisted' : ai > 0.65 ? 'Mixed indicators' : 'Likely human',
     production:       ai > 0.65 ? 'AI-assisted' : ai > 0.35 ? 'Mixed indicators' : 'Human-led',
     mixingMastering:  ai > 0.85 ? 'Mixed indicators' : 'Human-led'
