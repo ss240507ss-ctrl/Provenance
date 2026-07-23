@@ -848,11 +848,12 @@ function isGenreFluidArtist(genres) {
   return familiesPresent.length >= 3;
 }
 
-function assessHumanContribution(productionSignals) {
+function assessHumanContribution(productionSignals, credits) {
   const ai = productionSignals.aiLikelihoodScore;
+  const hasHumanWriters = credits && credits.writers && credits.writers.length > 0;
   return {
-    songwriting:      'Human-led',
-    composition:      'Human-led',
+    songwriting:      hasHumanWriters ? 'Human-led' : ai > 0.85 ? 'Unverified' : 'Human-led',
+    composition:      hasHumanWriters ? 'Human-led' : ai > 0.85 ? 'Unverified' : 'Human-led',
     vocalPerformance: ai > 0.80 ? 'AI-assisted' : ai > 0.65 ? 'Mixed indicators' : 'Likely human',
     production:       ai > 0.65 ? 'AI-assisted' : ai > 0.35 ? 'Mixed indicators' : 'Human-led',
     mixingMastering:  ai > 0.85 ? 'Mixed indicators' : 'Human-led'
