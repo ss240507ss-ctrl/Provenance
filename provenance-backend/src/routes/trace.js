@@ -65,6 +65,7 @@ router.post('/', async (req, res) => {
     });
 
     console.log(`[${traceId}] Complete in ${result.meta.processingMs}ms`);
+console.log('Credits:', JSON.stringify(result.contributors));
     res.json(result);
 
   } catch (err) {
