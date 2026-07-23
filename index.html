@@ -1611,18 +1611,28 @@ function renderResult(data) {
   document.querySelector('.so-val').textContent = signals.overallAssessment;
 
   const hc = data.humanContribution;
-  const hcRows = document.querySelectorAll('.hc-row');
-  const hcValues = [hc.songwriting, hc.composition, hc.vocalPerformance, hc.production, hc.mixingMastering];
-  hcRows.forEach((row, i) => {
-    const val = row.querySelector('.hc-val');
-    if (val && hcValues[i]) {
-      val.textContent = hcValues[i];
-      val.className = 'hc-val ' + (
-        hcValues[i].includes('Human') ? 'hcv-human' :
-        hcValues[i].includes('Mixed') ? 'hcv-mixed' : 'hcv-ai'
-      );
-    }
-  });
+const credits = data.contributors;
+const hcRows = document.querySelectorAll('.hc-row');
+const hcValues = [hc.songwriting, hc.composition, hc.vocalPerformance, hc.production, hc.mixingMastering];
+const hcNames = [
+  credits?.writers?.join(', ') || null,
+  credits?.writers?.join(', ') || null,
+  credits?.primaryArtist || null,
+  credits?.producers?.join(', ') || null,
+  null
+];
+hcRows.forEach((row, i) => {
+  const val = row.querySelector('.hc-val');
+  if (val && hcValues[i]) {
+    val.className = 'hc-val ' + (
+      hcValues[i].includes('Human') ? 'hcv-human' :
+      hcValues[i].includes('Mixed') ? 'hcv-mixed' : 'hcv-ai'
+    );
+    val.innerHTML = hcNames[i]
+      ? `${hcValues[i]} <span style="font-size:10px;color:var(--muted);font-weight:400">· ${hcNames[i]}</span>`
+      : hcValues[i];
+  }
+});
 
   if (data.artistRecognition) {
     document.querySelector('.justice-text').innerHTML = data.artistRecognition.message;

@@ -381,7 +381,7 @@ async function trace(songData, spotifyData, productionSignals) {
   const influences = await buildInfluences(similarArtists, artist, genreFamily, productionSignals, songData.year, featuredArtistNames, artistGender);
   const genreLineage = GENRE_LINEAGE[genreFamily]?.lineage || [];
   const culturalContext = GENRE_LINEAGE[genreFamily]?.culturalContext || null;
-  const humanContribution = assessHumanContribution(productionSignals, productionSignals.credits);
+  const humanContribution = assessHumanContribution(productionSignals);
   const artistRecognition = buildArtistRecognition(influences, artist);
   const influenceScores = influences.map(inf => ({ name: inf.name, score: inf.score, type: inf.type }));
 
@@ -570,17 +570,37 @@ async function buildInfluencesInternal(similarArtists, currentArtist, genreFamil
 
   // Real audio-similarity match (from librosa feature comparison) — most accurate
   if (productionSignals.similarArtists && productionSignals.similarArtists.length > 0) {
-    return productionSignals.similarArtists.slice(0, 3).map((a, i) => ({
-      name: a.name,
-      estate: null,
-      hasEstate: false,
-      type: isAiTrack ? 'Vocal/production similarity (audio-matched)' : guessInfluenceType(genreFamily),
-      description: isAiTrack
-  ? `Audio analysis found this track's vocal and production characteristics closely resemble ${a.name} (${Math.round(a.similarity)}% similarity).`
-        : `${a.name} shares strong sonic and stylistic characteristics with this track (${Math.round(a.similarity)}% similarity).`,
-      score: weights[i] || 0.05,
-      displayPercentage: [65, 20, 10][i] || 5
-    }));
+    const dimensionLabels = {
+      'vocal':      'Vocal influence',
+      'rhythm':     'Rhythmic influence',
+      'harmonic':   'Harmonic influence',
+      'production': 'Production influence'
+    };
+    const dimensionDescriptions = {
+      'vocal':      'vocal delivery, breath patterns, and pitch characteristics',
+      'rhythm':     'rhythmic patterns, timing, and groove',
+      'harmonic':   'harmonic content, melodic structure, and tonal quality',
+      'production': 'production style, dynamic range, and sonic texture'
+    };
+    return productionSignals.similarArtists.slice(0, 3).map((a, i) => {
+      const dim     = a.dimension || 'vocal';
+      const label   = dimensionLabels[dim]   || 'Sonic influence';
+      const dimDesc = dimensionDescriptions[dim] || 'sonic characteristics';
+      const simPct  = a.similarity !== undefined
+        ? (a.similarity > 1 ? Math.round(a.similarity) : Math.round(a.similarity * 100))
+        : null;
+      return {
+        name:              a.name,
+        estate:            null,
+        hasEstate:         false,
+        type:              isAiTrack ? label : guessInfluenceType(genreFamily),
+        description:       isAiTrack
+          ? `Audio analysis found this track's ${dimDesc} closely resembles ${a.name}${simPct ? ` (${simPct}% match)` : ''}.`
+          : `${a.name} shares strong sonic and stylistic characteristics with this track.`,
+        score:             weights[i] || 0.05,
+        displayPercentage: [65, 20, 10][i] || 5
+      };
+    });
   }
 
   // AI tracks without audio match — show real human artists AI likely learned this style from.
@@ -828,12 +848,11 @@ function isGenreFluidArtist(genres) {
   return familiesPresent.length >= 3;
 }
 
-function assessHumanContribution(productionSignals, credits) {
+function assessHumanContribution(productionSignals) {
   const ai = productionSignals.aiLikelihoodScore;
-  const hasHumanWriters = credits && credits.writers && credits.writers.length > 0;
   return {
-    songwriting:      hasHumanWriters ? 'Human-led' : ai > 0.80 ? 'Mixed indicators' : 'Human-led',
-    composition:      hasHumanWriters ? 'Human-led' : ai > 0.80 ? 'Mixed indicators' : 'Human-led',
+    songwriting:      'Human-led',
+    composition:      'Human-led',
     vocalPerformance: ai > 0.80 ? 'AI-assisted' : ai > 0.65 ? 'Mixed indicators' : 'Likely human',
     production:       ai > 0.65 ? 'AI-assisted' : ai > 0.35 ? 'Mixed indicators' : 'Human-led',
     mixingMastering:  ai > 0.85 ? 'Mixed indicators' : 'Human-led'

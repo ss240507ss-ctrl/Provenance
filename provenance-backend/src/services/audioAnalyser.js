@@ -621,7 +621,13 @@ async function callPythonFingerprintLookup(songData) {
         .replace(/Best_of_\w+_/i, '')
         .replace(/[_]+/g, ' ')
         .trim();
-      return { name, similarity: match.similarity, genre: match.genre, source: 'acoustic-fingerprint' };
+      return {
+        name,
+        similarity:  match.similarity,
+        genre:       match.genre,
+        dimension:   match.dimension,
+        source:      'acoustic-fingerprint'
+      };
     }).filter(a => a.name && a.name.length > 2);
 
     return { similarArtists, fingerprintMatch: data.fingerprintMatch };
