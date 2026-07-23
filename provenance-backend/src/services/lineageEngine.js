@@ -861,13 +861,15 @@ function assessHumanContribution(productionSignals) {
 
 function buildArtistRecognition(influences, currentArtist) {
   if (!influences || influences.length === 0) return null;
-  const primary = influences.find(i => i.name.toLowerCase() !== currentArtist.toLowerCase()) || influences[0];
+  const credited = influences
+    .filter(i => i.name.toLowerCase() !== currentArtist.toLowerCase())
+    .slice(0, 3);
+  if (credited.length === 0) return null;
+  const names = credited.map(i => `<strong>${i.name}</strong>`).join(', ');
   return {
-    artistName: primary.name,
-    estateName: primary.estate || null,
-    message: primary.hasEstate
-      ? `${primary.estate} currently receives no automatic compensation from AI systems influenced by their work. Provenance documents this so the conversation can happen.`
-      : `${primary.name}'s creative work has shaped this sound. Their contribution currently goes unacknowledged in AI-generated music. Provenance documents this so the conversation can happen.`
+    artistName: credited[0].name,
+    estateName: credited[0].estate || null,
+    message: `${names} — their creative work has shaped this sound. These contributions currently go unacknowledged in AI-generated music. Provenance documents this so the conversation can happen.`
   };
 }
 
