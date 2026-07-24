@@ -115,7 +115,12 @@ def fingerprint_stats():
     if not FINGERPRINT_AVAILABLE:
         return jsonify({'loaded': False, 'message': 'fingerprint_lookup module not available'})
     return jsonify(fingerprint_lookup.stats())
-
+@app.route('/fingerprint/check')
+def fingerprint_check():
+    entry = fingerprint_lookup._search_index.get('how was i supposed to know xania monet')
+    if entry:
+        return jsonify({'found': True, 'title': entry.get('title'), 'search_key': entry.get('search_key')})
+    return jsonify({'found': False, 'keys_sample': list(fingerprint_lookup._search_index.keys())[:10]})
 
 def infer_genre_from_features(features):
     """Use full 34-feature vector to find the closest human genre centroid."""
