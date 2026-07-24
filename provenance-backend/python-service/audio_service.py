@@ -234,7 +234,7 @@ def analyse():
     search_query = data.get('search_query', f"{artist} {song_title}".strip())
 
     logger.info(f"Analysing: {song_title} by {artist}")
-logger.info(f"Lookup attempt: title='{song_title}' artist='{artist}'")
+    logger.info(f"Lookup attempt: title='{song_title}' artist='{artist}'")
 
     # ── ROUND 0: Fingerprint database lookup (instant, no download) ─────
     if data.get('input_type') == 'fingerprint-only':
