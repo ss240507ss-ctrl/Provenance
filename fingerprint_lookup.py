@@ -48,8 +48,8 @@ _search_index = {}
 def _load():
     global _db, _model, _scaler, _search_index
     if os.path.exists(DB_PATH):
-        with open(DB_PATH, 'r', encoding='utf-8') as f:
-            _db = json.load(f)
+        with open(DB_PATH, 'r', encoding='utf-8-sig') as f:
+    _db = json.load(f)
         # Build search index from stored search_key and artist+title fields
         for filename_key, entry in _db.items():
             # Index by stored search_key
