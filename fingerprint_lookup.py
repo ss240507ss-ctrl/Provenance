@@ -92,13 +92,11 @@ def lookup(title, artist):
 
     matched_entry = None
 
-    # Check search index first (fast exact match)
     for key in candidates:
         if key in _search_index:
             matched_entry = _search_index[key]
             break
 
-    # Fuzzy fallback — check if candidate words are subset of any search key
     if not matched_entry:
         for key in candidates:
             key_words = set(key.split())
@@ -115,8 +113,7 @@ def lookup(title, artist):
         return None
 
     features = matched_entry['features']
-    # Defensive: skip if this entry doesn't have all 34 features
-    # (e.g. an old-format entry that wasn't rebuilt with v2 extraction)
+
     if not all(f in features for f in FEATURES):
         return None
 
@@ -126,7 +123,6 @@ def lookup(title, artist):
         scaled  = _scaler.transform(feature_vector)
         proba   = _model.predict_proba(scaled)[0]
         ai_prob = float(proba[1])
-
         return {
             'found': True,
             'source': 'fingerprint_db',
