@@ -115,6 +115,15 @@ def fingerprint_stats():
     if not FINGERPRINT_AVAILABLE:
         return jsonify({'loaded': False, 'message': 'fingerprint_lookup module not available'})
     return jsonify(fingerprint_lookup.stats())
+@app.route('/fingerprint/debug')
+def fingerprint_debug():
+    test_key = "how was i supposed to know xania monet"
+    found = test_key in fingerprint_lookup._search_index
+    return jsonify({
+        'test_key_found': found,
+        'total_search_keys': len(fingerprint_lookup._search_index),
+        'total_db_entries': len(fingerprint_lookup._db)
+    })
 @app.route('/fingerprint/check')
 def fingerprint_check():
     entry = fingerprint_lookup._search_index.get('how was i supposed to know xania monet')
