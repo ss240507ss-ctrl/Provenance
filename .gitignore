@@ -141,3 +141,17 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+extract_features_v2.py
+train_model_v3.py
+provenance-backend/python-service/extract_and_add_v2.py
+provenance-backend/python-service/fix_search_keys.py
+provenance-backend/python-service/test_lookup.py
+provenance-backend/python-service/count_keys.py
+provenance-backend/python-service/__pycache__/fingerprint_lookup.cpython-314.pyc
+provenance-backend/python-service/check_features.py
+provenance-backend/python-service/fingerprint_db.json
+provenance-backend/python-service/fingerprint_db_BACKUP.json
+provenance-backend/python-service/fingerprint_db.json
+provenance-backend/python-service/test_real_lookup.py
+provenance-backend/python-service/remove_ai_entries.py
+provenance-backend/python-service/restore_human_tracks.py

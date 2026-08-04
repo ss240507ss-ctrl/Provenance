@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
 const traceRoutes = require('./routes/trace');
+const flagsRoutes = require('./routes/flags');
 const discoverRoutes = require('./routes/discover');
 const healthRoutes = require('./routes/health');
 
@@ -38,6 +39,7 @@ app.use('/api/', limiter);
 app.use('/api/health', healthRoutes);
 app.use('/api/trace', traceRoutes);
 app.use('/api/discover', discoverRoutes);
+app.use('/api', flagsRoutes);
 
 // ─── 404 ─────────────────────────────────────
 app.use((req, res) => {
